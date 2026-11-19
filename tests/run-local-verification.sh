@@ -59,7 +59,7 @@ docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
     -w /app php:8.4-cli sh -c '
 set -e
 for file in $(find Application Console Connectors Contracts Database Domain Http Infrastructure Jobs Listeners Providers Resources Routes tests examples -type f -name "*.php" | sort); do php -l "$file" >/dev/null; done
-for test in contract provider sicoob-http-client sicoob-retry-policy bank-connector-plugin menu-listener scoped-credentials mtls-certificate-verifier health-snapshot native-mapper staging-sqlite read-only-sync-sqlite review-decision-sqlite connection-control-sqlite; do
+for test in contract provider sicoob-http-client sicoob-retry-policy bank-connector-plugin scoped-credentials mtls-certificate-verifier health-snapshot native-mapper staging-sqlite read-only-sync-sqlite review-decision-sqlite connection-control-sqlite; do
     php "tests/$test.php" >/dev/null
     echo "PASS $test"
 done
@@ -100,6 +100,7 @@ BANKING_CONNECTORS_LOCAL_CREDS="$BASE/admin-credentials.local" BANKING_CONNECTOR
     python3 "$ROOT/tests/localhost-review-post.py"
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-multitenant.py"
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-connections.py"
+BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-account-navigation.py"
 if [[ -f "$BASE/app-root/modules/BankConnectorExample/module.json" ]]; then
     BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-external-connector.py"
     echo 'PASS optional independently installed bank connector E2E'

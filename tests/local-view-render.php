@@ -52,7 +52,7 @@ $controller = app(ReviewController::class);
 $view = $controller->index($request);
 $html = $view->render();
 if (!str_contains($html, 'Sicoob - Teste de Conciliação') ||
-    !str_contains($html, 'Banking Connectors') ||
+    !str_contains($html, 'Integração bancária') ||
     str_contains($html, 'LOCAL-CR-0001') ||
     str_contains($html, 'local-fixture-only')) {
     throw new RuntimeException('Native Blade rendered unexpected or sensitive output');

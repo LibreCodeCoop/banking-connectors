@@ -84,7 +84,7 @@ page = admin.open(BASE + "/2/banking-connectors", timeout=20)
 html = page.read().decode(errors="replace")
 parser = Csrf()
 parser.feed(html)
-check(page.status == 200 and parser.token and "Banking Connectors" in html,
+check(page.status == 200 and parser.token and "Integração bancária" in html,
       "authorized Web connection panel accessible")
 check("Adicionar conexão bancária" in html and 'name="provider"' in html,
       "Web UI exposes registered-bank connection management")

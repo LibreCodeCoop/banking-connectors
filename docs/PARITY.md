@@ -12,7 +12,7 @@ route or a database table exists.
 | Last fetch, expiry and errors | Connection metadata, error status and CLI health check | Safe error status, last success, queued requests and retry backoff tested; proactive certificate-expiry alerting not integrated with production Zabbix |
 | Read bank credits/debits | Provider-specific mapper to normalized bank entries | Module HTTP client validated against real Sicoob GET, 5 movements, ephemeral staging only |
 | Avoid duplicated movements | Unique bank ID HMAC and atomic staging | SQLite/MariaDB and local Akaunting verified; key-change guard added |
-| Show pending and conflicting entries | Company/account-scoped review queue and permission-controlled native menu | Native Web page and JSON API tested under authenticated users |
+| Show pending and conflicting entries | Company/account-scoped review queue reached from each native bank account's action menu | Authenticated Web, tenant-scoped account links and JSON API tested |
 | Suggest existing native transactions | Exact amount/sign/account/currency plus nearby date | Shared read-only matcher; ambiguity requires explicit review |
 | Review a suggested match | Idempotent audit-only accept/dismiss/reopen | Web POST with CSRF and API POST tested; NO native ledger update |
 | Attach bank event to invoice/bill | Native accounting/document link | Not implemented |
