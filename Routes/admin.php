@@ -6,6 +6,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\BankingConnectors\Http\Controllers\ReviewController;
 use Modules\BankingConnectors\Http\Controllers\ConnectionController;
+use Modules\BankingConnectors\Http\Controllers\ClassificationController;
 
 Route::admin('banking-connectors', static function (): void {
     // Read-only preview and explicitly authorized review metadata.
@@ -23,6 +24,12 @@ Route::admin('banking-connectors', static function (): void {
     Route::get('accounts/{accountId}/integration', [ReviewController::class, 'account'])
         ->whereNumber('accountId')
         ->name('show');
+    Route::post('accounts/{accountId}/integration/rules', [ClassificationController::class, 'createRule'])
+        ->whereNumber('accountId')->name('rule.create');
+    Route::post('accounts/{accountId}/integration/rules/{ruleId}/toggle', [ClassificationController::class, 'toggleRule'])
+        ->whereNumber('accountId')->whereNumber('ruleId')->name('rule.toggle');
+    Route::post('accounts/{accountId}/integration/entries/{entryId}/category', [ClassificationController::class, 'classify'])
+        ->whereNumber('accountId')->whereNumber('entryId')->name('category.update');
 }, [
     'prefix' => 'banking',
     'as' => 'banking-connectors.account.',

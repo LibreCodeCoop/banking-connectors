@@ -86,8 +86,11 @@ parser = Csrf()
 parser.feed(html)
 check(page.status == 200 and parser.token and "Integração bancária" in html,
       "authorized Web connection panel accessible")
-check("Adicionar conexão bancária" in html and 'name="provider"' in html,
-      "Web UI exposes registered-bank connection management")
+settings = admin.open(BASE + "/2/banking/accounts/2/integration?tab=settings", timeout=20)
+settings_html = settings.read().decode(errors="replace")
+check(settings.status == 200 and "Criar conexão bancária" in settings_html and
+      'name="provider"' in settings_html and 'name="account_id"' in settings_html,
+      "unconnected bank account exposes provider setup in configuration tab")
 check("client-key-password" not in html and "fingerprint-key" not in html,
       "Web panel contains no private credential filenames or secret material")
 

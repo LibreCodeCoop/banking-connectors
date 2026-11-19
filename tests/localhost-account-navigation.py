@@ -115,13 +115,18 @@ for account_id in (3, 4):
             "account %d opens tenant-scoped integration page" % account_id)
     require("Integração bancária" in html,
             "account %d uses localized page title" % account_id)
-    require('href="http://127.0.0.1:18789/2/banking/accounts/%d" id="banking-connectors-back-to-account"' % account_id in html,
-            "account %d is not silently substituted with a different account" % account_id)
+    links = Links()
+    links.feed(html)
+    require(links.anchors.get("banking-connectors-back-to-account", "").endswith(
+        "/2/banking/accounts/%d" % account_id),
+        "account %d is not silently substituted with a different account" % account_id)
 
 status, html = fetch(admin, "/2/banking/accounts/2/integration")
-require(status == 200 and 'name="account_id"' in html and
+require(status == 200 and 'id="banking-connectors-tab-settings"' in html and
+        'aria-current="page"' in html and "Criar conexão bancária" in html and
+        'name="account_id"' in html and 'name="provider"' in html and
         'id="banking-connectors-account-context"' in html,
-        "unconnected bank account opens scoped creation form")
+        "unconnected bank account opens scoped connection setup")
 require('value="2" selected' in html, "new connection form preselects scoped account")
 
 for forbidden in (6, 999999):
@@ -161,8 +166,11 @@ require(own_actions.anchors.get("index-line-actions-bank-integration-account-6",
 require("index-line-actions-bank-integration-account-3" not in own_actions.anchors,
         "second company cannot see first company's integration menu")
 status, scoped_html = fetch(second, "/3/banking/accounts/6/integration")
+own_links = Links()
+own_links.feed(scoped_html)
 require(status == 200 and
-        'href="http://127.0.0.1:18789/3/banking/accounts/6" id="banking-connectors-back-to-account"' in scoped_html,
+        own_links.anchors.get("banking-connectors-back-to-account","").endswith(
+            "/3/banking/accounts/6"),
         "second company's account route preserves its own bank account")
 status, rejected_html = fetch(second_no_redirect, "/3/banking/accounts/3/integration")
 require(status in (302, 403, 404) and

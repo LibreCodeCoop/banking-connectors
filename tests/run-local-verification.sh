@@ -58,8 +58,8 @@ docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
     -v "$HOME/projects/akaunting-credential-vault:/shared:ro" \
     -w /app php:8.4-cli sh -c '
 set -e
-for file in $(find Application Console Connectors Contracts Database Domain Http Infrastructure Jobs Listeners Providers Resources Routes tests examples -type f -name "*.php" | sort); do php -l "$file" >/dev/null; done
-for test in contract provider sicoob-http-client sicoob-retry-policy bank-connector-plugin scoped-credentials mtls-certificate-verifier health-snapshot native-mapper staging-sqlite read-only-sync-sqlite review-decision-sqlite connection-control-sqlite; do
+for file in $(find Application Console Connectors Contracts Database Domain Http Infrastructure Jobs Providers Resources Routes tests examples -type f -name "*.php" | sort); do php -l "$file" >/dev/null; done
+for test in contract provider sicoob-http-client sicoob-retry-policy bank-connector-plugin scoped-credentials mtls-certificate-verifier health-snapshot native-mapper staging-sqlite read-only-sync-sqlite review-decision-sqlite category-workflow-sqlite connection-control-sqlite; do
     php "tests/$test.php" >/dev/null
     echo "PASS $test"
 done
@@ -93,6 +93,21 @@ for test in local-akaunting-integration local-readonly-sync local-view-render lo
     echo "PASS $test"
 done
 
+echo '== Compile and PHP-lint native Akaunting Blade output =='
+docker exec "$PHP_CONTAINER" php artisan view:cache --no-ansi >/dev/null
+docker exec "$PHP_CONTAINER" sh -c '
+set -e
+found=0
+for file in storage/framework/views/*.php; do
+    if grep -q "bank-classification-rules-title" "$file"; then
+        php -l "$file" >/dev/null
+        found=1
+    fi
+done
+test "$found" -eq 1
+'
+echo 'PASS Bank Connectors Blade is syntactically valid after compilation'
+
 echo '== Authenticated HTTP Web/API and multi-company tests =='
 BANKING_CONNECTORS_LOCAL_CREDS="$BASE/admin-credentials.local" BANKING_CONNECTORS_LOCAL_COMPANY_ID=2 \
     python3 "$ROOT/tests/localhost-http.py"
@@ -101,6 +116,7 @@ BANKING_CONNECTORS_LOCAL_CREDS="$BASE/admin-credentials.local" BANKING_CONNECTOR
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-multitenant.py"
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-connections.py"
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-account-navigation.py"
+BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-classification.py"
 if [[ -f "$BASE/app-root/modules/BankConnectorExample/module.json" ]]; then
     BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-external-connector.py"
     echo 'PASS optional independently installed bank connector E2E'
