@@ -1,0 +1,30 @@
+name: Banking Connectors contracts
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  php-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run offline PHP domain regressions
+        run: |
+          docker run --rm --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,nosuid,noexec,size=16m,mode=1777 \
+            -v "$PWD:/module:ro" -w /module php:8.4-cli sh -ceu '
+              find Application Console Connectors Contracts Database Domain Http Infrastructure Providers Routes tests examples \
+                -type f -name "*.php" -exec php -l {} \; > /tmp/php-lint.txt
+              for test in contract provider sicoob-http-client sicoob-retry-policy \
+                  bank-connector-plugin health-snapshot native-mapper staging-sqlite \
+                  read-only-sync-sqlite review-decision-sqlite connection-control-sqlite; do
+                php "tests/$test.php" > /tmp/case.out ||
+                  { echo "FAIL $test"; exit 1; }
+                echo "PASS $test"
+              done
+            '

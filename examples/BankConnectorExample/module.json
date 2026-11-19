@@ -1,0 +1,17 @@
+{
+  "alias": "bank-connector-example",
+  "icon": "account_balance",
+  "version": "0.1.0-dev",
+  "active": 1,
+  "providers": [
+    "Modules\\BankConnectorExample\\Providers\\Main"
+  ],
+  "aliases": {},
+  "files": [],
+  "requires": [
+    "banking-connectors"
+  ],
+  "reports": [],
+  "widgets": [],
+  "settings": []
+}

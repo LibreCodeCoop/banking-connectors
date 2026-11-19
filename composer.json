@@ -1,0 +1,16 @@
+{
+  "name": "librecodecoop/banking-connectors",
+  "description": "Open-source banking connectors and statement reconciliation for financial platforms",
+  "type": "akaunting-module",
+  "license": "AGPL-3.0-or-later",
+  "require": {
+    "php": "^8.2",
+    "ext-curl": "*",
+    "ext-openssl": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Modules\\BankingConnectors\\": "./"
+    }
+  }
+}

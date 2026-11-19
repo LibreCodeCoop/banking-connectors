@@ -1,0 +1,26 @@
+/vendor/
+/.phpunit.cache/
+/.env
+/.env.*
+!/.env.example
+/secrets/
+/state/
+/coverage/
+/.idea/
+**/__pycache__/
+*.pyc
+*.local
+
+# Local credential material and operational state
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+*.cer
+*.kdbx
+*.sqlite
+*.sqlite3
+*.db
+*.log
+!.env.example

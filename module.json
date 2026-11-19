@@ -1,0 +1,16 @@
+{
+  "alias": "banking-connectors",
+  "icon": "account_balance",
+  "version": "0.1.0-dev",
+  "active": 1,
+  "providers": [
+    "Modules\\BankingConnectors\\Providers\\Main",
+    "Modules\\BankingConnectors\\Providers\\Event"
+  ],
+  "aliases": {},
+  "files": [],
+  "requires": ["credential-vault"],
+  "reports": [],
+  "widgets": [],
+  "settings": []
+}
