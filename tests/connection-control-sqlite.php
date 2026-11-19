@@ -19,11 +19,6 @@ function checkControl(bool $ok, string $description): void
 
 $db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 SqliteStageFixture::install($db);
-$db->exec("CREATE TABLE accounts (
-    id INTEGER PRIMARY KEY, company_id INTEGER NOT NULL,
-    name TEXT NOT NULL, type TEXT NOT NULL, currency_code TEXT NOT NULL,
-    enabled INTEGER NOT NULL, deleted_at DATETIME NULL
-)");
 $db->exec("INSERT INTO accounts VALUES
 (9,1,'synthetic company1 bank','bank','BRL',1,NULL),
 (10,2,'synthetic company2 bank','bank','BRL',1,NULL),

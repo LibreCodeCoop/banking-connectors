@@ -23,7 +23,7 @@ final class MatchingEngine
      */
     public function evaluate(BankEntry $bank, array $existing, string $fingerprintKey, int $maxDays = 3): array
     {
-        if ($maxDays < 0 || $maxDays > 14) {
+        if ($maxDays < 0 || $maxDays > 90) {
             throw new InvalidArgumentException('invalid_date_tolerance');
         }
         $bankFingerprint = $bank->fingerprint($fingerprintKey);
@@ -104,7 +104,7 @@ final class MatchingEngine
      */
     public function suggestByFacts(BankEntry $bank, array $existing, int $maxDays = 3): array
     {
-        if ($maxDays < 0 || $maxDays > 14) {
+        if ($maxDays < 0 || $maxDays > 90) {
             throw new InvalidArgumentException('invalid_date_tolerance');
         }
         $candidateIds = [];

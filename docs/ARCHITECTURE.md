@@ -40,16 +40,36 @@ does not alter Akaunting core or claim to settle invoices automatically.
   records, recurring parents and split children, and rejects truncated or
   malformed datasets before declaring a movement unmatched.
 - **Human review**: the native Web page and JSON API call the same
-  `ReviewPreview` and `ReviewDecisionService`. Equal amount, direction,
-  account, currency and near date suggest candidates; they never auto-confirm.
+  `ReviewPreview` and `ReviewDecisionService`. Exact amount, direction,
+  account, currency and near date suggest eligible candidates; they never
+  auto-confirm. The account Web view offers 3/14/45/90-day discovery windows,
+  keeps completed/ignored entries visible and lets users retract links.
+  The default JSON preview contract remains pending-only.
 - **Review events**: `accept`, `dismiss` and `reopen` update only Banking Connectors
   state, with idempotency keys and append-only application-level audit events.
   A unique constraint prevents two bank movements in the same company/account
   from claiming the same native transaction ID.
-- **Accounting operations (not implemented)**: future native Akaunting
-  services must validate historical audit decisions again immediately before
-  any financial write. A review decision is **not** a native reconciliation,
-  receipt, invoice settlement, payment or ledger mutation.
+- **Classifications**: a bounded, validated `bank_description` is extracted
+  from the Sicoob description field. Per-company/account category rules use
+  case/accent-normalized `contains`, debit/credit direction, enabled flag
+  and numeric priority. Exact same-priority category conflicts return no
+  suggestion. Rules update only staging categories, and never override
+  a manually set category. Operator classification and optional native
+  category application are audited by separate append-only events.
+- **Narrow native category edits**: an authenticated reviewer can explicitly
+  request category-only change for an already reviewed, manually linked and
+  non-reconciled income/expense transaction. The service verifies amount,
+  direction, currency, company/account, the previously displayed native
+  category, document linkage and concurrent changes. One SQL transaction
+  changes only native `category_id`/`updated_at` plus staging/audit rows.
+  This narrow direct SQL operation deliberately avoids Akaunting's broad
+  UpdateTransaction job (which may modify attachments/tax relationships).
+  It does not run the model's update events, so integrations depending on
+  those events must use Akaunting's native edit screen instead.
+- **Accounting operations not implemented**: Bank Connectors does **not**
+  create transactions, settle invoices, mark payments as received, change
+  taxes, reconcile native bank entries or post ledger records automatically.
+  Such workflows require separate review and the native Akaunting services.
 
 The bank is authoritative for settlement and bank movement identity;
 Akaunting remains authoritative for accounting classification, documents,
@@ -95,7 +115,9 @@ against a database administrator.
   returns the previously recorded result; reuse with different data fails.
 - Cross-company access, invalid candidates and conflicting source revisions
   are rejected before any module-owned review state changes.
-- No operation creates or alters native Akaunting accounting transactions.
+- No operation creates or settles native accounting transactions. The only
+  supported native change is a user-confirmed, audited category-only edit
+  of an eligible, currently unlocked existing transaction.
 - The Sicoob Pix callback path is deliberately absent. Any future webhook
   must verify provider identity/replay, treating callbacks as hints until
   independently confirmed by bank API.

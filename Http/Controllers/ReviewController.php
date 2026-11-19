@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Modules\BankingConnectors\Application\ReviewPreview;
 use Modules\BankingConnectors\Application\BankConnectorRegistry;
+use Modules\BankingConnectors\Application\CategoryWorkflow;
 
 /**
  * Native admin-only read surface. Do not trust company/account/connection
@@ -27,6 +28,7 @@ final class ReviewController extends Controller
         private readonly ReviewPreview $preview,
         private readonly ReviewDecisionService $decisions,
         private readonly BankConnectorRegistry $registry,
+        private readonly CategoryWorkflow $classification,
     ) {}
 
     public function index(Request $request): View
@@ -57,6 +59,12 @@ final class ReviewController extends Controller
         // Never accept a company override from a query string.
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
         abort_unless($companyId > 0, 404);
+        $tab = (string) $request->query('tab', $accountId === null ? 'review' : 'review');
+        abort_unless(in_array($tab, ['review','settings','rules'], true), 404);
+        $filter = (string) $request->query('filter', 'pending');
+        abort_unless(in_array($filter, ['pending','reviewed','dismissed','all'], true), 422);
+        $searchDays = filter_var($request->query('search_days', 3), FILTER_VALIDATE_INT);
+        abort_unless(in_array($searchDays, [3,14,45,90], true), 422);
 
         $accountContext = null;
         if ($accountId !== null) {
@@ -85,7 +93,8 @@ final class ReviewController extends Controller
                 'c.id', 'c.account_id', 'c.provider', 'c.state',
                 'c.last_success_at', 'c.last_error_code', 'c.cursor_date',
                 'c.poll_requested_at', 'c.next_retry_at', 'c.failure_count',
-                'c.fingerprint_key_commitment',
+                'c.fingerprint_key_commitment', 'c.certificate_valid_to',
+                'c.credentials_checked_at',
                 'a.name as account_name', 'a.currency_code',
             ]);
 
@@ -112,18 +121,79 @@ final class ReviewController extends Controller
         } else {
             $selected = $connections->first();
         }
+        // An unconnected bank card must open the connection setup directly.
+        if ($accountContext !== null && $selected === null && !$request->has('tab')) {
+            $tab = 'settings';
+        }
 
+        $categories = DB::table('categories')
+            ->where('company_id', $companyId)->where('enabled', 1)
+            ->whereNull('deleted_at')->whereIn('type', ['income','expense'])
+            ->orderBy('name')->get(['id','name','type']);
+        $categoryNames = $categories->pluck('name','id')->all();
+        $rules = $selected !== null
+            ? $this->classification->rules($companyId, (int)$selected->account_id)
+            : [];
         $report = ['items' => [], 'summary' => [
             'suggested' => 0, 'needs_review' => 0, 'unmatched' => 0,
         ]];
+        $stateCounts = ['pending'=>0,'reviewed'=>0,'dismissed'=>0];
         if ($selected !== null) {
+            $account = (int)$selected->account_id;
             $report = $this->preview->forConnection(
-                $companyId, (int) $selected->account_id, (int) $selected->id
+                $companyId, $account, (int)$selected->id, 50, $filter, (int)$searchDays, $rules
             );
+            $rawCounts = DB::table('lcc_banking_connectors_entries')
+                ->where('company_id',$companyId)->where('account_id',$account)
+                ->where('connection_id',(int)$selected->id)
+                ->selectRaw('state, count(*) as total')->groupBy('state')->get();
+            foreach ($rawCounts as $row) {
+                $key = $row->state === 'conflict' ? 'pending' : $row->state;
+                if (array_key_exists($key,$stateCounts)) $stateCounts[$key] += (int)$row->total;
+            }
+            $ids = [];
+            foreach ($report['items'] as $item) {
+                if ($item['linked_transaction_id'] !== null) $ids[]=$item['linked_transaction_id'];
+                foreach ($item['candidate_ids'] as $candidate) $ids[]=$candidate;
+            }
+            $nativeById = $ids === [] ? collect() : DB::table('transactions')
+                ->where('company_id',$companyId)->where('account_id',$account)
+                ->whereNull('deleted_at')->whereIn('id',array_values(array_unique($ids)))
+                ->get(['id','description','category_id','reconciled','document_id','parent_id','split_id'])
+                ->keyBy('id');
+            foreach ($report['items'] as &$item) {
+                $native = $item['linked_transaction_id'] !== null
+                    ? $nativeById->get($item['linked_transaction_id']) : null;
+                $item['native_category_id'] = $native?->category_id !== null
+                    ? (int)$native->category_id : null;
+                $item['native_category_name'] = $item['native_category_id'] !== null
+                    ? ($categoryNames[$item['native_category_id']] ?? null) : null;
+                $item['native_locked'] = $native === null ||
+                    (int)($native->reconciled ?? 0)!==0 ||
+                    $native->document_id !== null ||
+                    (int)($native->parent_id ?? 0)!==0 ||
+                    $native->split_id !== null;
+                $item['native_exists'] = $native !== null;
+                foreach ($item['candidate_details'] as &$candidate) {
+                    $match=$nativeById->get($candidate['id']);
+                    $candidate['description'] = $match?->description;
+                    $candidate['category_name'] = $match?->category_id !== null
+                        ? ($categoryNames[(int)$match->category_id] ?? null) : null;
+                }
+                unset($candidate);
+            }
+            unset($item);
         }
 
         return view('banking-connectors::review', [
             'accountContext' => $accountContext,
+            'tab' => $tab,
+            'filter' => $filter,
+            'searchDays' => (int)$searchDays,
+            'rules' => $rules,
+            'categories' => $categories,
+            'categoryNames' => $categoryNames,
+            'stateCounts' => $stateCounts,
             'canReview' => auth()->user()->can('update-banking-transactions'),
             'canManage' => $canManage,
             'canRequest' => $canManage && auth()->user()->can('update-banking-transactions'),
@@ -155,6 +225,7 @@ final class ReviewController extends Controller
             'operation' => 'required|in:accept,dismiss,reopen',
             'native_transaction_id' => 'nullable|integer|min:1',
             'request_key' => ['required', 'regex:/^[a-f0-9]{32}$/D'],
+            'search_days' => 'nullable|in:3,14,45,90',
         ]);
         $connectionId = (int) $values['connection_id'];
         $connection = DB::table('lcc_banking_connectors_connections as c')
@@ -179,6 +250,7 @@ final class ReviewController extends Controller
                 (string) $values['operation'],
                 $nativeId,
                 (string) $values['request_key'],
+                (int) ($values['search_days'] ?? 3),
             );
         } catch (DomainException|InvalidArgumentException $error) {
             // Safe, fixed domain codes only: never return provider payloads.
@@ -194,6 +266,12 @@ final class ReviewController extends Controller
         return redirect()->route('banking-connectors.account.show', [
             'company_id' => $companyId,
             'accountId' => (int) $connection->account_id,
+            'tab' => 'review',
+            'filter' => match ((string)$values['operation']) {
+                'accept' => 'reviewed',
+                'dismiss' => 'dismissed',
+                default => 'pending',
+            },
         ])->with('success', trans('banking-connectors::general.review_saved'));
     }
 }

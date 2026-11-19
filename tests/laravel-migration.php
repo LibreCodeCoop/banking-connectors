@@ -14,6 +14,7 @@ if ($autoload === '' || !is_file($autoload)) {
 }
 require $autoload;
 require dirname(__DIR__) . '/Domain/BankEntry.php';
+require dirname(__DIR__) . '/Domain/CategoryRuleEngine.php';
 require dirname(__DIR__) . '/Infrastructure/PdoEntryStage.php';
 
 use Illuminate\Database\Capsule\Manager as Capsule;
@@ -39,13 +40,23 @@ $capsule->getConnection()->table('lcc_banking_connectors_connections')->insert([
     'id' => 1, 'company_id' => 1, 'account_id' => 9,
     'provider' => 'sicoob', 'state' => 'read_only',
 ]);
-$oldStore = new PdoEntryStage($pdo);
 $upgradeSecret = str_repeat('upgrade-test-only-no-production-', 2);
 $oldMovement = new BankEntry(
     1, 9, 'sicoob', 'pre-upgrade-bank-id', '2026-11-16', 'credit', 111
 );
-$oldStore->ingest(1, 1, 9, 'sicoob', [$oldMovement], $upgradeSecret);
 $oldFingerprint = $oldMovement->fingerprint($upgradeSecret);
+// Simulate a movement inserted by the pre-upgrade version of the module,
+// before category columns and rule tables existed.
+$oldContent = hash_hmac('sha256',
+    'normalized-entry-v1|2026-11-16|credit|111|BRL', $upgradeSecret);
+$pdo->prepare('INSERT INTO lcc_banking_connectors_entries
+    (connection_id,company_id,account_id,provider,source_fingerprint,
+     content_fingerprint,movement_date,direction,amount_cents,currency,state,
+     conflict_count,first_seen_at,last_seen_at,created_at,updated_at)
+    VALUES (1,1,9,?, ?,?,"2026-11-16","credit",111,"BRL","pending",0,
+            "2026-11-16 11:00:00","2026-11-16 11:00:00",
+            "2026-11-16 11:00:00","2026-11-16 11:00:00")')
+    ->execute(['sicoob',$oldFingerprint,$oldContent]);
 $reviewMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_17_170000_create_banking_connectors_review_events.php';
 $reviewMigration->up();
 $keyMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_17_180000_guard_banking_connectors_fingerprint_key.php';
@@ -54,7 +65,14 @@ $opsMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_17_1900
 $opsMigration->up();
 $healthMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_18_120000_add_banking_connectors_credential_health.php';
 $healthMigration->up();
-foreach (['lcc_banking_connectors_connections', 'lcc_banking_connectors_entries', 'lcc_banking_connectors_review_events'] as $table) {
+$categoryMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_19_150000_add_banking_connectors_classification.php';
+$categoryMigration->up();
+// Akaunting owns this native table; create only its minimal shape in the
+// disposable in-memory migration fixture, never in the module migration.
+$pdo->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY,company_id INT,
+    type VARCHAR(20),enabled INT,deleted_at DATETIME)');
+foreach (['lcc_banking_connectors_connections', 'lcc_banking_connectors_entries', 'lcc_banking_connectors_review_events',
+         'lcc_banking_connectors_category_rules','lcc_banking_connectors_category_events'] as $table) {
     if (!Schema::hasTable($table)) {
         throw new RuntimeException('Migration did not create ' . $table);
     }
@@ -92,6 +110,7 @@ if ($first['inserted'] !== 1 || $second['duplicates'] !== 1 ||
 }
 echo 'PASS PDO storage works against the actual Laravel migration schema' . PHP_EOL;
 
+$categoryMigration->down();
 $healthMigration->down();
 $opsMigration->down();
 $keyMigration->down();

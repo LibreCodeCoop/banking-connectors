@@ -29,9 +29,22 @@ independent of Akaunting's proprietary Bank Feeds app.
   a company-scoped worker immediately; a one-minute opt-in scheduler processes
   stranded manual requests, while normal automatic polling remains 15-minute.
   Neither HTTP controllers nor webhook diagnostics directly contact the bank.
-- Explicit, idempotent match/dismiss/reopen actions. These **only** alter
-  Banking Connectors metadata: no payment confirmation, invoice settlement, accounting
-  transaction creation or changes to the Akaunting core.
+- Three account-scoped Web sections: **Movements and review**, **Configure integration**
+  (non-secret provider, certificate health and read-only synchronization), and
+  **Categorization rules** (separate income and expense category selectors).
+- Bank descriptions are normalized, bounded and stored only as a whitelisted
+  field. Rules propose company/account-specific categories by movement direction,
+  bank description and priority; competing equal-priority categories fail closed.
+- Manual category overrides win over automated suggestions, even after bank
+  replay. Users can filter pending/linked/ignored entries, inspect more
+  candidate transactions in bounded date windows, and reopen incorrect links.
+- Explicit, idempotent match/dismiss/reopen actions modify only Banking
+  Connectors metadata, not invoice settlement or transaction creation.
+- A **separate, expressly confirmed option** can change only `category_id`
+  on an existing, manually linked, non-reconciled native Akaunting transaction.
+  It rechecks company/account, financial facts, existing category, document
+  linkage and concurrent changes, then stores an audit event. It never
+  confirms bank payment, creates a transaction, or alters amount/date/taxes.
 - Synthetic localhost tests for Web authentication, CSRF, HTTP API, tenant/ACL
   isolation, MariaDB migrations and recovery.
 - Sicoob HTTP failure classification with bounded Retry-After backoff (429),
@@ -39,19 +52,23 @@ independent of Akaunting's proprietary Bank Feeds app.
 
 ## Limitations
 
-This is **not yet a production-ready bank feed**. The read-only Sicoob HTTP
-client has been carried over from the earlier POC. Credentials can be supplied
-by OpenBao Agent using private read-only files. Agent/AppRole templating and
-synthetic certificate rotation have passed locally; the **production OpenBao
-integration is not configured or approved**. The scheduler and queued polling are disabled by
-default until the module is configured, and no connection auto-enables. There is a connection-management Web
-UI, but no credential-provisioning UI or native financial posting. Do not
-copy certificates or tokens into the source repository.
+The Sicoob connector is read-only and the scheduler is disabled by default
+until an operator enables a connection. Access credentials, mTLS certificates
+and private keys **must be provisioned outside the browser** using restricted
+worker mounts or a configured OpenBao Agent; the Web configuration tab never
+asks users to paste a certificate password or private key. OpenBao Agent
+delivery and synthetic certificate rotation have passed in an isolated
+environment. OpenBao provisioning is deployment-dependent and must not be
+assumed to be active at every installation.
 
-**Do not install in production.** Synthetic backup/restore, migration upgrades
-and worker-crash recovery passed. Production still requires authorization and
-read-only validation of the actual OpenBao credential mapping, real bank
-throttling/outage recovery, retention policies and controlled deployment.
+The category rules run on imported statements, not directly on Akaunting
+financial transactions. No system may automatically settle invoices, import
+native expenses, infer a tax code, or rewrite already reconciled financial
+records on the strength of a rule or a bank webhook. Manual native category
+changes require explicit confirmation and a verified existing link.
+Production deployments must validate their own backup/restore, accountant
+policy, bank rate limits, secret delivery, permissions, monitoring and rollout;
+the tests here do not by themselves prove readiness for every installation.
 
 Git deployment: [docs/GIT_DEPLOY.md](docs/GIT_DEPLOY.md) ·
 Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
@@ -81,6 +98,7 @@ php tests/staging-sqlite.php
 php tests/read-only-sync-sqlite.php
 php tests/connection-control-sqlite.php
 php tests/review-decision-sqlite.php
+php tests/category-workflow-sqlite.php
 ```
 
 See the testing guide for disposable Docker/MariaDB and full localhost

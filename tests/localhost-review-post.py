@@ -28,16 +28,25 @@ class Html(HTMLParser):
         self.forms = []
         self.current = None
         self.csrf = None
+        self.select_name = None
     def handle_starttag(self, tag, attrs):
         d = dict(attrs)
         if tag == "form":
             self.current = {"action": d.get("action"), "fields": {}}
+        if tag == "select":
+            self.select_name = d.get("name")
+        if tag == "option" and self.current is not None and self.select_name == "native_transaction_id":
+            value = d.get("value", "")
+            if value.isdigit() and not self.current["fields"].get("native_transaction_id"):
+                self.current["fields"]["native_transaction_id"] = value
         if tag == "input":
             if d.get("name") == "_token":
                 self.csrf = d.get("value")
             if self.current is not None and d.get("name"):
                 self.current["fields"][d["name"]] = d.get("value", "")
     def handle_endtag(self, tag):
+        if tag == "select":
+            self.select_name = None
         if tag == "form" and self.current is not None:
             self.forms.append(self.current)
             self.current = None

@@ -13,6 +13,7 @@ use Modules\BankingConnectors\Application\ReadOnlySynchronizer;
 use Modules\BankingConnectors\Application\ReviewDecisionService;
 use Modules\BankingConnectors\Application\ReviewPreview;
 use Modules\BankingConnectors\Application\ConnectionControl;
+use Modules\BankingConnectors\Application\CategoryWorkflow;
 use Modules\BankingConnectors\Application\BankConnectorRegistry;
 use Modules\BankingConnectors\Connectors\Sicoob\SicoobConnector;
 use Modules\BankingConnectors\Application\HealthSnapshot;
@@ -66,6 +67,9 @@ final class Main extends ServiceProvider
         });
         $this->app->bind(ConnectionControl::class, static function (): ConnectionControl {
             return new ConnectionControl(DB::connection()->getPdo(), DB::connection()->getTablePrefix());
+        });
+        $this->app->bind(CategoryWorkflow::class, static function (): CategoryWorkflow {
+            return new CategoryWorkflow(DB::connection()->getPdo(), DB::connection()->getTablePrefix());
         });
         $this->app->bind(ReadOnlySynchronizer::class, static function (): ReadOnlySynchronizer {
             return new ReadOnlySynchronizer(

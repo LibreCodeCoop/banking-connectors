@@ -38,10 +38,19 @@ certificate rotation, MySQL crash recovery and separate DB restore passed.
   isolation, restricted-role denial and mismatched-candidate cases passed
   against a synthetic Akaunting installation.
 
-**Remaining:** explicit durable review history in the UI, filters/pagination
-and full lifecycle UX, negative E2E around deleted/reversed native entries,
-transfers, refunds, partial invoice payments and historical snapshots;
-independent UI visual review and accessibility acceptance.
+**Implemented additionally:** configurable description-based category rules
+with conflict-safe priority, manual category overrides, read-only previews
+of linked/ignored movements, explicit re-opening of prior decisions,
+bounded matching windows and a separate setup/rules/review navigation.
+A narrowly scoped, user-confirmed category-only update on an already
+matched, non-reconciled native transaction is available with idempotency
+and an audit event, not as automatic financial posting.
+
+**Remaining:** pagination beyond the first 50 per filter, richer transaction
+search beyond exact amount/account/direction constraints, comprehensive
+reconciliation of transfers, refunds, partial invoice payments and historical
+snapshots, accountant verification and independent visual/accessibility review.
+No automatic native posting or settlement is enabled.
 
 ## C. Native financial posting — not implemented
 

@@ -120,6 +120,14 @@ required). This is an integration point for monitoring, **not** evidence that
 Zabbix alert delivery has already been configured.
 
 The combined local regression is `bash tests/run-local-verification.sh`.
+`tests/category-workflow-sqlite.php` verifies category suggestions, disabled
+rules, manual overrides, idempotency, stale category checks, tenant isolation,
+and the deliberate native category-only write. `tests/localhost-classification.py`
+exercises the authenticated setup/rules/reconciliation UI, including correct
+category direction, CSRF, restricted role and second-company rejection.
+The synthetic migration test preserves existing bank movements across the
+additive classification migration; native ledger count, types and amounts
+must remain unchanged throughout the full regression.
 
 The per-account action dropdown is tested by
 `tests/localhost-account-navigation.py` under authenticated synthetic users,

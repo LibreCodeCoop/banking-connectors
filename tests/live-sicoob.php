@@ -14,6 +14,7 @@ require dirname(__DIR__) . '/Connectors/Sicoob/SicoobProvider.php';
 require dirname(__DIR__) . '/Contracts/BankTransportFailure.php';
 require dirname(__DIR__) . '/Connectors/Sicoob/SicoobHttpFailure.php';
 require dirname(__DIR__) . '/Connectors/Sicoob/SicoobHttpClient.php';
+require dirname(__DIR__) . '/Domain/CategoryRuleEngine.php';
 require dirname(__DIR__) . '/Infrastructure/PdoEntryStage.php';
 require __DIR__ . '/Support/SqliteStageFixture.php';
 

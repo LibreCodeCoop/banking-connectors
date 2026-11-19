@@ -45,6 +45,7 @@ final class SicoobStatementMapper
                     date: self::parseDate($row['data'] ?? null),
                     direction: $direction,
                     amountCents: self::parseMoney($row['valor'] ?? null),
+                    description: self::safeDescription($row['descricao'] ?? null),
                 );
                 $seen[$id] = true;
                 $entries[] = $entry;
@@ -54,6 +55,16 @@ final class SicoobStatementMapper
         }
         return ['entries' => $entries, 'rejected' => $rejected];
     }
+    private static function safeDescription(mixed $description): ?string
+    {
+        if (!is_string($description) || !preg_match('//u', $description)) {
+            return null;
+        }
+        $description = trim(preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $description) ?? '');
+        // Never truncate through UTF-8 byte boundaries or disclose raw payloads.
+        return $description !== '' && strlen($description) <= 240 ? $description : null;
+    }
+
     private static function parseDate(mixed $input): string
     {
         if (!is_string($input)) {

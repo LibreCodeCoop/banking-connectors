@@ -86,7 +86,7 @@ api = urllib.request.build_opener(
     urllib.request.HTTPCookieProcessor(jar), NoRedirect
 )
 
-page = client.open(BASE + "/2/banking-connectors", timeout=20)
+page = client.open(BASE + "/2/banking/accounts/2/integration?tab=settings", timeout=20)
 html = page.read().decode(errors="replace")
 token = Token()
 token.feed(html)
