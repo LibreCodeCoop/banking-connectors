@@ -10,6 +10,7 @@ use DateTimeZone;
 use DomainException;
 use InvalidArgumentException;
 use Modules\BankingConnectors\Domain\BankEntry;
+use Modules\BankingConnectors\Domain\CategoryRuleEngine;
 use PDO;
 use PDOException;
 use RuntimeException;
@@ -94,23 +95,28 @@ final class PdoEntryStage
         $this->db->beginTransaction();
         try {
             $this->assertConnection($connectionId, $companyId, $accountId, $provider, true);
+            $rules = $this->activeRules($companyId, $accountId);
+            $ruleEngine = new CategoryRuleEngine();
             foreach ($prepared as $payload) {
                 /** @var BankEntry $entry */
                 $entry = $payload['entry'];
                 $fingerprint = $payload['fingerprint'];
                 $content = $payload['content'];
+                $suggested = $ruleEngine->suggest($entry->description, $entry->direction, $rules);
 
                 try {
                     $insert = $this->db->prepare(
                         "INSERT INTO {$this->entriesTable}
                         (connection_id, company_id, account_id, provider,
                          source_fingerprint, content_fingerprint, movement_date,
-                         direction, amount_cents, currency, state, conflict_count,
+                         direction, amount_cents, currency, bank_description,
+                         category_id, category_source, category_rule_id, state, conflict_count,
                          first_seen_at, last_seen_at, created_at, updated_at)
                         VALUES
                         (:connection_id, :company_id, :account_id, :provider,
                          :source_key, :content_key, :movement_date,
-                         :direction, :amount_cents, :currency, :state, 0,
+                         :direction, :amount_cents, :currency, :bank_description,
+                         :category_id, :category_source, :rule_id, :state, 0,
                          :first_seen_at, :last_seen_at, :created_at, :updated_at)"
                     );
                     $insert->execute([
@@ -124,6 +130,10 @@ final class PdoEntryStage
                         ':direction' => $entry->direction,
                         ':amount_cents' => $entry->amountCents,
                         ':currency' => $entry->currency,
+                        ':bank_description' => $entry->description,
+                        ':category_id' => $suggested['category_id'] ?? null,
+                        ':category_source' => $suggested === null ? null : 'rule',
+                        ':rule_id' => $suggested['rule_id'] ?? null,
                         ':state' => 'pending',
                         ':first_seen_at' => $now,
                         ':last_seen_at' => $now,
@@ -186,11 +196,28 @@ final class PdoEntryStage
 
                 $update = $this->db->prepare(
                     "UPDATE {$this->entriesTable}
-                     SET last_seen_at = :observed, updated_at = :updated
+                     SET last_seen_at = :observed, updated_at = :updated,
+                         bank_description = CASE
+                           WHEN :description IS NOT NULL THEN :new_description
+                           ELSE bank_description END,
+                         category_id = CASE
+                           WHEN state='pending' AND (category_source IS NULL OR category_source='rule')
+                           THEN :category ELSE category_id END,
+                         category_rule_id = CASE
+                           WHEN state='pending' AND (category_source IS NULL OR category_source='rule')
+                           THEN :rule_id ELSE category_rule_id END,
+                         category_source = CASE
+                           WHEN state='pending' AND (category_source IS NULL OR category_source='rule')
+                           THEN :source ELSE category_source END
                      WHERE id = :id AND company_id = :company_id"
                 );
                 $update->execute([
                     ':observed' => $now, ':updated' => $now,
+                    ':description' => $entry->description,
+                    ':new_description' => $entry->description,
+                    ':category' => $suggested['category_id'] ?? null,
+                    ':rule_id' => $suggested['rule_id'] ?? null,
+                    ':source' => $suggested === null ? null : 'rule',
                     ':id' => $existing['id'], ':company_id' => $companyId,
                 ]);
                 ++$counts['duplicates'];
@@ -219,7 +246,8 @@ final class PdoEntryStage
         $this->assertConnection($connectionId, $companyId, $accountId, null, false);
         $stmt = $this->db->prepare(
             "SELECT id, provider, movement_date, direction, amount_cents, currency,
-                    state, conflict_count, first_seen_at, last_seen_at
+                    bank_description, category_id, category_source, category_rule_id,
+                    state, linked_transaction_id, conflict_count, first_seen_at, last_seen_at
              FROM {$this->entriesTable}
              WHERE connection_id = :connection_id AND company_id = :company_id
                AND account_id = :account_id
@@ -232,6 +260,68 @@ final class PdoEntryStage
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    /**
+     * List recent staged movements across review states for correction without
+     * changing the legacy pending-only JSON API contract.
+     * @return array<int,array<string,mixed>>
+     */
+    public function listForReview(int $company, int $account, int $connection, string $filter, int $limit=50): array
+    {
+        if (!in_array($filter,['pending','reviewed','dismissed','all'],true) ||
+            $limit<1 || $limit>100) {
+            throw new InvalidArgumentException('invalid_review_filter');
+        }
+        $this->assertConnection($connection,$company,$account,null,false);
+        $states=match($filter) {
+            'pending'=>"'pending','conflict'",
+            'reviewed'=>"'reviewed'",
+            'dismissed'=>"'dismissed'",
+            default=>"'pending','conflict','reviewed','dismissed'",
+        };
+        $q=$this->db->prepare(
+            "SELECT id,provider,movement_date,direction,amount_cents,currency,
+                    bank_description,category_id,category_source,category_rule_id,
+                    state,linked_transaction_id,conflict_count,first_seen_at,last_seen_at
+             FROM {$this->entriesTable}
+             WHERE company_id=:company AND account_id=:account AND connection_id=:connection
+               AND state IN ({$states})
+             ORDER BY movement_date DESC,id DESC LIMIT :limit"
+        );
+        $q->bindValue(':company',$company,PDO::PARAM_INT);
+        $q->bindValue(':account',$account,PDO::PARAM_INT);
+        $q->bindValue(':connection',$connection,PDO::PARAM_INT);
+        $q->bindValue(':limit',$limit,PDO::PARAM_INT);
+        $q->execute();
+        return $q->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function activeRules(int $company, int $account): array
+    {
+        $rules = preg_replace('/lcc_banking_connectors_connections$/', 'lcc_banking_connectors_category_rules', $this->connectionsTable);
+        $cats = preg_replace('/lcc_banking_connectors_connections$/', 'categories', $this->connectionsTable);
+        if (!is_string($rules) || !is_string($cats)) {
+            throw new RuntimeException('invalid_category_rule_table');
+        }
+        $q = $this->db->prepare(
+            "SELECT r.id,r.direction,r.description_contains,r.category_id,r.priority,r.enabled
+             FROM {$rules} r JOIN {$cats} c
+                  ON c.id=r.category_id AND c.company_id=r.company_id
+             WHERE r.company_id=:company AND r.account_id=:account
+               AND r.enabled=1 AND c.enabled=1 AND c.deleted_at IS NULL
+               AND ((r.direction='credit' AND c.type='income')
+                OR (r.direction='debit' AND c.type='expense'))
+             ORDER BY r.priority ASC,r.id ASC LIMIT 101"
+        );
+        $q->execute([':company'=>$company,':account'=>$account]);
+        $rows = $q->fetchAll(PDO::FETCH_ASSOC);
+        if (count($rows)>100) {
+            // Invalid rule configuration must not silently degrade ingestion.
+            throw new DomainException('too_many_active_category_rules');
+        }
+        return $rows;
     }
 
     private function assertConnection(

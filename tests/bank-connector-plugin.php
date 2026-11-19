@@ -9,6 +9,7 @@ require dirname(__DIR__) . '/Contracts/BankConnector.php';
 require dirname(__DIR__) . '/Domain/ConnectorSession.php';
 require dirname(__DIR__) . '/Domain/ConnectionContext.php';
 require dirname(__DIR__) . '/Application/BankConnectorRegistry.php';
+require dirname(__DIR__) . '/Domain/CategoryRuleEngine.php';
 require dirname(__DIR__) . '/Infrastructure/PdoEntryStage.php';
 require dirname(__DIR__) . '/Application/ReadOnlySynchronizer.php';
 require __DIR__ . '/Support/SqliteStageFixture.php';

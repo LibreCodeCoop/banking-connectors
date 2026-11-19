@@ -37,7 +37,7 @@ final class NativeTransactionReader
      */
     public function near(int $companyId, int $accountId, string $date, int $days = 3): array
     {
-        if ($companyId < 1 || $accountId < 1 || $days < 0 || $days > 14) {
+        if ($companyId < 1 || $accountId < 1 || $days < 0 || $days > 90) {
             throw new InvalidArgumentException('invalid_lookup_scope');
         }
         $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date);

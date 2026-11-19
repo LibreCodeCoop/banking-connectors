@@ -20,6 +20,7 @@ final class BankEntry
         public readonly string $direction,
         public readonly int $amountCents,
         public readonly string $currency = 'BRL',
+        public readonly ?string $description = null,
     ) {
         if ($companyId < 1 || $accountId < 1) {
             throw new InvalidArgumentException('invalid_scope');
@@ -43,6 +44,13 @@ final class BankEntry
         }
         if (!preg_match('/^[A-Z]{3}$/', $currency)) {
             throw new InvalidArgumentException('invalid_currency');
+        }
+        if ($description !== null && (
+            strlen($description) > 240 ||
+            !preg_match('//u', $description) ||
+            preg_match('/[\x00-\x1F\x7F]/', $description)
+        )) {
+            throw new InvalidArgumentException('invalid_bank_description');
         }
     }
 

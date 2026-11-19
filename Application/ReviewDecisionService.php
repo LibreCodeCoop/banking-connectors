@@ -58,7 +58,11 @@ final class ReviewDecisionService
         string $action,
         ?int $nativeTransactionId,
         string $requestKey,
+        int $searchDays = 3,
     ): array {
+        if (!in_array($searchDays, [3,14,45,90], true)) {
+            throw new InvalidArgumentException('invalid_manual_lookup_days');
+        }
         if (min($companyId, $accountId, $connectionId, $entryId, $actorId) < 1
             || !in_array($action, ['accept', 'dismiss', 'reopen'], true)
             || !preg_match('/^[a-f0-9]{32}$/D', $requestKey)
@@ -136,11 +140,11 @@ final class ReviewDecisionService
                     amountCents: (int) $entry['amount_cents'],
                     currency: (string) $entry['currency'],
                 );
-                $near = $this->native->near($companyId, $accountId, $movement->date);
+                $near = $this->native->near($companyId, $accountId, $movement->date, $searchDays);
                 if ($near['truncated'] || $near['invalid']) {
                     throw new DomainException('native_candidates_incomplete');
                 }
-                $suggestions = $this->matching->suggestByFacts($movement, $near['rows']);
+                $suggestions = $this->matching->suggestByFacts($movement, $near['rows'], $searchDays);
                 if (!in_array($nativeTransactionId, $suggestions['candidate_ids'], true)) {
                     throw new DomainException('native_transaction_not_eligible');
                 }

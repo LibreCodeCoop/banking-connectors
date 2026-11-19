@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/Domain/BankEntry.php';
+require dirname(__DIR__) . '/Domain/CategoryRuleEngine.php';
 require dirname(__DIR__) . '/Infrastructure/PdoEntryStage.php';
 require __DIR__ . '/Support/SqliteStageFixture.php';
 

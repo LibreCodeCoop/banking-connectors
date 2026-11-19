@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/Domain/BankEntry.php';
 require dirname(__DIR__) . '/Domain/AkauntingTransactionMapper.php';
 require dirname(__DIR__) . '/Domain/MatchingEngine.php';
 require dirname(__DIR__) . '/Infrastructure/NativeTransactionReader.php';
+require dirname(__DIR__) . '/Domain/CategoryRuleEngine.php';
 require dirname(__DIR__) . '/Infrastructure/PdoEntryStage.php';
 require dirname(__DIR__) . '/Application/ReviewDecisionService.php';
 require __DIR__ . '/Support/SqliteStageFixture.php';
