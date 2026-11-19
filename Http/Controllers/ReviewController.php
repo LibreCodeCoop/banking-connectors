@@ -31,6 +31,21 @@ final class ReviewController extends Controller
 
     public function index(Request $request): View
     {
+        return $this->renderPage($request, null);
+    }
+
+    public function account(Request $request): View
+    {
+        // Akaunting's company middleware may remove company_id after the
+        // route action parameters were resolved. Never rely on positional
+        // integer arguments when a route has both company_id and accountId.
+        $accountId = filter_var($request->route('accountId'), FILTER_VALIDATE_INT);
+        abort_unless($accountId !== false && $accountId > 0, 404);
+        return $this->renderPage($request, (int) $accountId);
+    }
+
+    private function renderPage(Request $request, ?int $accountId): View
+    {
         abort_unless(auth()->check(), 401);
         abort_unless(
             auth()->user()->can('read-banking-transactions') &&
@@ -43,12 +58,27 @@ final class ReviewController extends Controller
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
         abort_unless($companyId > 0, 404);
 
+        $accountContext = null;
+        if ($accountId !== null) {
+            $accountContext = DB::table('accounts')
+                ->where('id', $accountId)
+                ->where('company_id', $companyId)
+                ->where('type', 'bank')
+                ->where('enabled', 1)
+                ->whereNull('deleted_at')
+                ->first(['id', 'name']);
+            abort_unless($accountContext !== null, 404);
+        }
+
         $connections = DB::table('lcc_banking_connectors_connections as c')
             ->join('accounts as a', static function ($join): void {
                 $join->on('a.id', '=', 'c.account_id')
                     ->on('a.company_id', '=', 'c.company_id');
             })
             ->where('c.company_id', $companyId)
+            ->when($accountContext !== null, static function ($query) use ($accountId): void {
+                $query->where('c.account_id', $accountId);
+            })
             ->whereNull('a.deleted_at')
             ->orderBy('a.name')
             ->get([
@@ -66,6 +96,9 @@ final class ReviewController extends Controller
                 ->where('type', 'bank')
                 ->where('enabled', 1)
                 ->whereNull('deleted_at')
+                ->when($accountContext !== null, static function ($query) use ($accountId): void {
+                    $query->where('id', $accountId);
+                })
                 ->orderBy('name')->get(['id', 'name'])
             : collect();
 
@@ -90,6 +123,7 @@ final class ReviewController extends Controller
         }
 
         return view('banking-connectors::review', [
+            'accountContext' => $accountContext,
             'canReview' => auth()->user()->can('update-banking-transactions'),
             'canManage' => $canManage,
             'canRequest' => $canManage && auth()->user()->can('update-banking-transactions'),
@@ -157,9 +191,9 @@ final class ReviewController extends Controller
             return response()->json(['state' => $decision['state'],
                 'idempotent' => $decision['idempotent']], 200);
         }
-        return redirect()->route('banking-connectors.review.index', [
+        return redirect()->route('banking-connectors.account.show', [
             'company_id' => $companyId,
-            'connection_id' => $connectionId,
+            'accountId' => (int) $connection->account_id,
         ])->with('success', trans('banking-connectors::general.review_saved'));
     }
 }

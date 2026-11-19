@@ -7,6 +7,7 @@ namespace Modules\BankingConnectors\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Modules\BankingConnectors\Application\ReadOnlySynchronizer;
 use Modules\BankingConnectors\Application\ReviewDecisionService;
@@ -25,6 +26,7 @@ use Modules\BankingConnectors\Infrastructure\NativeTransactionReader;
 use Modules\BankingConnectors\Infrastructure\PdoEntryStage;
 use Modules\BankingConnectors\Connectors\Sicoob\SicoobStatementMapper;
 use Modules\BankingConnectors\Connectors\Sicoob\SicoobCredentialResolver;
+use Modules\BankingConnectors\Http\ViewComposers\AccountActions;
 
 /**
  * Registers the module's dedicated tables and read-only domain services.
@@ -87,6 +89,9 @@ final class Main extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
         $this->loadViewsFrom(__DIR__ . '/../Resources/views', 'banking-connectors');
         $this->loadTranslationsFrom(__DIR__ . '/../Resources/lang', 'banking-connectors');
+        // Integrate with each native bank account's action dropdown rather than
+        // publishing a second sidebar entry. The composer checks ACL and tenant.
+        View::composer('components.accounts.index.accounts', AccountActions::class);
         if ($this->app->runningInConsole()) {
             $this->commands([
                 PollConnection::class, PollAll::class,
