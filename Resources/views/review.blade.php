@@ -3,7 +3,20 @@
     <x-slot name="content">
         <x-index.container>
             <section class="mb-6">
+                @if ($accountContext !== null)
+                    <x-link
+                        href="{{ route('accounts.show', $accountContext->id) }}"
+                        class="text-sm text-purple hover:underline mb-3 inline-block"
+                        override="class"
+                        id="banking-connectors-back-to-account"
+                    >{{ trans('banking-connectors::general.back_to_account') }}</x-link>
+                @endif
                 <h1 class="text-xl font-semibold text-black">{{ trans('banking-connectors::general.name') }}</h1>
+                @if ($accountContext !== null)
+                    <p class="mt-1 text-base font-medium text-gray-800" id="banking-connectors-account-context">
+                        {{ trans('banking-connectors::general.account_context', ['account' => $accountContext->name]) }}
+                    </p>
+                @endif
                 <p class="mt-2 text-sm text-gray-600">{{ trans('banking-connectors::general.intro') }}</p>
             </section>
 
@@ -17,7 +30,7 @@
                 <div class="mb-5 rounded-xl bg-red-50 border border-red-200 px-5 py-3 text-sm text-red-800" role="alert">{{ trans('banking-connectors::general.review_failed') }}</div>
             @endif
 
-            @if ($canManage && $availableAccounts->isNotEmpty())
+            @if ($canManage && $availableAccounts->isNotEmpty() && ($accountContext === null || $connections->isEmpty()))
                 <section class="rounded-xl border bg-white p-5 mb-6" aria-label="{{ trans('banking-connectors::general.new_connection') }}">
                     <h2 class="text-base font-semibold mb-3">{{ trans('banking-connectors::general.new_connection') }}</h2>
                     <form method="POST" action="{{ route('banking-connectors.connections.create', ['company_id' => company_id()]) }}" class="flex flex-col sm:flex-row gap-3 items-end">
@@ -34,7 +47,7 @@
                             <span class="block text-sm text-gray-600 mb-2">{{ trans('banking-connectors::general.account') }}</span>
                             <select name="account_id" required class="w-full border rounded-md px-3 py-2">
                                 @foreach ($availableAccounts as $account)
-                                    <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                    <option value="{{ $account->id }}" {{ $accountContext !== null && (int) $accountContext->id === (int) $account->id ? 'selected' : '' }}>{{ $account->name }}</option>
                                 @endforeach
                             </select>
                         </label>
@@ -47,7 +60,10 @@
             @if ($connections->isEmpty())
                 <div class="border rounded-xl bg-white px-6 py-10 text-gray-600">{{ trans('banking-connectors::general.no_connections') }}</div>
             @else
-                <form method="GET" class="mb-6 rounded-xl border bg-white px-5 py-4 flex items-end gap-4" action="{{ route('banking-connectors.review.index', ['company_id' => company_id()]) }}">
+                @if ($accountContext === null || $connections->count() > 1)
+                <form method="GET" class="mb-6 rounded-xl border bg-white px-5 py-4 flex items-end gap-4" action="{{ $accountContext !== null
+                    ? route('banking-connectors.account.show', ['company_id' => company_id(), 'accountId' => $accountContext->id])
+                    : route('banking-connectors.review.index', ['company_id' => company_id()]) }}">
                     <label class="flex-1">
                         <span class="block text-sm mb-2 text-gray-600">{{ trans('banking-connectors::general.account') }}</span>
                         <select class="w-full border rounded-md px-3 py-2" name="connection_id">
@@ -60,6 +76,7 @@
                     </label>
                     <button type="submit" class="bg-purple text-white rounded-md py-2 px-5">{{ trans('banking-connectors::general.show') }}</button>
                 </form>
+                @endif
 
                 @if ($selected !== null)
                     <p class="text-sm text-gray-600 mb-4">

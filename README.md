@@ -22,7 +22,9 @@ independent of Akaunting's proprietary Bank Feeds app.
   registered providers, with one canonical command family.
 - Web configuration of paused connections, opt-in synchronization, queued manual
   requests and bounded retry intervals; credentials never enter the browser.
-- A native, permission-controlled Akaunting sidebar entry for bank movements.
+- Account-scoped **Bank integration** actions in Akaunting's native bank-account
+  dropdown (and **Connect bank** for eligible unlinked accounts), with no
+  duplicate global sidebar entry or Akaunting core modifications.
 - When an asynchronous queue is available, a user-initiated refresh dispatches
   a company-scoped worker immediately; a one-minute opt-in scheduler processes
   stranded manual requests, while normal automatic polling remains 15-minute.

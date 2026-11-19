@@ -62,7 +62,7 @@ page = opener.open(url + admin_path, timeout=15)
 html = page.read().decode(errors="replace")
 verify(page.status == 200 and urllib.parse.urlparse(page.url).path == admin_path,
        "authenticated administrator accesses native Banking Connectors route")
-verify(("Banking Connectors" in html),
+verify(("Integração bancária" in html),
        "native Blade view renders its translated title")
 verify("Sicoob - Teste de Conciliação" in html,
        "account-scoped synthetic connection visible")

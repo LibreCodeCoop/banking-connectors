@@ -4,7 +4,11 @@
 declare(strict_types=1);
 
 return [
-    'name' => 'Banking Connectors',
+    'name' => 'Bank integration',
+    'account_integration' => 'Bank integration',
+    'connect_bank' => 'Connect bank',
+    'account_context' => 'Account: :account',
+    'back_to_account' => 'Back to bank account',
     'intro' => 'Compare bank entries with existing Akaunting transactions.',
     'read_only' => 'Bank data sync is read-only. Review decisions change only this module\'s own records: they do not create transactions, pay invoices or reconcile Akaunting ledger entries.',
     'no_connections' => 'No bank connection configured for this company.',

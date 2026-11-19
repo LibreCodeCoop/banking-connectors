@@ -8,6 +8,7 @@ namespace Modules\BankingConnectors\Http\Controllers;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -42,9 +43,11 @@ final class ConnectionController extends Controller
         }, $company, null, 'connection_saved', 201);
     }
 
-    public function state(Request $request, int $connectionId): JsonResponse|RedirectResponse
+    public function state(Request $request): JsonResponse|RedirectResponse
     {
         $company = $this->authorizedCompany(false);
+        $connectionId = filter_var($request->route('connectionId'), FILTER_VALIDATE_INT);
+        abort_unless($connectionId !== false && $connectionId > 0, 404);
         $values = $request->validate([
             'state' => 'required|in:paused,read_only,enabled',
         ]);
@@ -55,9 +58,11 @@ final class ConnectionController extends Controller
         }, $company, $connectionId, 'connection_saved', 200);
     }
 
-    public function request(Request $request, int $connectionId): JsonResponse|RedirectResponse
+    public function request(Request $request): JsonResponse|RedirectResponse
     {
         $company = $this->authorizedCompany(true);
+        $connectionId = filter_var($request->route('connectionId'), FILTER_VALIDATE_INT);
+        abort_unless($connectionId !== false && $connectionId > 0, 404);
         $values = $request->validate([
             'start_date' => 'nullable|date_format:Y-m-d',
             'request_key' => ['required', 'regex:/^[a-f0-9]{32}$/D'],
@@ -125,9 +130,23 @@ final class ConnectionController extends Controller
         if ($request->expectsJson()) {
             return response()->json(['data' => $result], $status);
         }
+        // Resolve the destination account from the persisted, tenant-scoped
+        // connection, never from a query parameter supplied by the browser.
+        $connectionId = $connection ?? ($result['id'] ?? null);
+        $accountId = $connectionId !== null
+            ? DB::table('lcc_banking_connectors_connections')
+                ->where('id', (int) $connectionId)
+                ->where('company_id', $company)
+                ->value('account_id')
+            : null;
+        if ($accountId !== null) {
+            return redirect()->route('banking-connectors.account.show', [
+                'company_id' => $company,
+                'accountId' => (int) $accountId,
+            ])->with('success', trans('banking-connectors::general.' . $successKey));
+        }
         return redirect()->route('banking-connectors.review.index', [
             'company_id' => $company,
-            'connection_id' => $connection ?? ($result['id'] ?? null),
         ])->with('success', trans('banking-connectors::general.' . $successKey));
     }
 }

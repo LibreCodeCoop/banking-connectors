@@ -121,8 +121,11 @@ Zabbix alert delivery has already been configured.
 
 The combined local regression is `bash tests/run-local-verification.sh`.
 
-The module's native menu is tested by `tests/menu-listener.php`, including
-absence for unauthorized users. The HTTP connection-control test checks
+The per-account action dropdown is tested by
+`tests/localhost-account-navigation.py` under authenticated synthetic users,
+including linked accounts, onboarding links, existing bookmarks, URL scope,
+unauthorized users and cross-company negatives. The main sidebar is not
+modified by this module. The HTTP connection-control test checks
 that a synchronous/test queue does not make a bank request inside the PHP Web
 worker. `tests/local-queued-poll.php` rejects forged company IDs, stale
 request keys and nonexistent connection IDs before any bank call; the

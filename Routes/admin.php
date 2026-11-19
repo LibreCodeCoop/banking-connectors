@@ -16,3 +16,15 @@ Route::admin('banking-connectors', static function (): void {
     Route::post('connections/{connectionId}/state', [ConnectionController::class, 'state'])->name('connections.state');
     Route::post('connections/{connectionId}/request-sync', [ConnectionController::class, 'request'])->name('connections.request');
 });
+
+// Native account-scoped entry point. Preserve the existing index route for
+// old bookmarks and API clients; all account ID checks are server-side.
+Route::admin('banking-connectors', static function (): void {
+    Route::get('accounts/{accountId}/integration', [ReviewController::class, 'account'])
+        ->whereNumber('accountId')
+        ->name('show');
+}, [
+    'prefix' => 'banking',
+    'as' => 'banking-connectors.account.',
+    'namespace' => null,
+]);

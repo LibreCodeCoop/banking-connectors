@@ -104,7 +104,10 @@ against a database administrator.
 
 ## Public surfaces
 
-Web: authorized native menu item for `GET /{company_id}/banking-connectors`, explicit
+Web: authorized native bank-account dropdown actions pointing to
+`GET /{company_id}/banking/accounts/{accountId}/integration`. The previous
+`GET /{company_id}/banking-connectors` route stays available for bookmarks,
+but no longer has a global sidebar entry. Explicit
 `POST /{company_id}/banking-connectors/review-decisions` for audit-only actions,
 `POST /{company_id}/banking-connectors/connections` for new paused bindings,
 `POST /{company_id}/banking-connectors/connections/{connectionId}/state` for state

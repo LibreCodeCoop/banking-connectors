@@ -4,8 +4,7 @@
   "version": "0.1.0-dev",
   "active": 1,
   "providers": [
-    "Modules\\BankingConnectors\\Providers\\Main",
-    "Modules\\BankingConnectors\\Providers\\Event"
+    "Modules\\BankingConnectors\\Providers\\Main"
   ],
   "aliases": {},
   "files": [],

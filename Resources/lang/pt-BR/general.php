@@ -4,7 +4,11 @@
 declare(strict_types=1);
 
 return [
-    'name' => 'Banking Connectors',
+    'name' => 'Integração bancária',
+    'account_integration' => 'Integração bancária',
+    'connect_bank' => 'Conectar banco',
+    'account_context' => 'Conta: :account',
+    'back_to_account' => 'Voltar à conta bancária',
     'intro' => 'Compare movimentações do banco com os lançamentos existentes no Akaunting.',
     'read_only' => 'A sincronização é somente leitura. Decisões de revisão alteram somente os registros deste módulo: não criam lançamentos, não baixam faturas e não conciliam a contabilidade do Akaunting.',
     'no_connections' => 'Nenhuma conexão bancária configurada para esta empresa.',
