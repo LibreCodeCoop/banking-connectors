@@ -165,6 +165,7 @@ return [
     'native_candidate_category_suggestion' => 'Categoria sugerida por um possível lançamento financeiro correspondente: :category (confirme o vínculo).',
     'native_candidate_not_proof' => 'Conta, data, sentido e valor coincidentes não comprovam o destinatário do Pix. Confira antes de confirmar.',
     'native_candidate_bill_paid' => 'Conta a pagar já marcada como paga no Akaunting',
+    'classify_without_link' => 'Classificar sem associar',
     'associate_and_inherit_category' => 'Associar e reaproveitar categoria',
     'category_source_manual' => 'Definida manualmente',
     'category_source_rule' => 'Sugerida por regra automática',

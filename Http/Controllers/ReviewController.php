@@ -191,7 +191,7 @@ final class ReviewController extends Controller
             $nativeById = $ids === [] ? collect() : DB::table('transactions')
                 ->where('company_id',$companyId)->where('account_id',$account)
                 ->whereNull('deleted_at')->whereIn('id',array_values(array_unique($ids)))
-                ->get(['id','description','category_id','reconciled','document_id','parent_id','split_id'])
+                ->get(['id','type','description','category_id','reconciled','document_id','parent_id','split_id'])
                 ->keyBy('id');
             foreach ($report['items'] as &$item) {
                 $native = $item['linked_transaction_id'] !== null
@@ -214,6 +214,7 @@ final class ReviewController extends Controller
                     $validCategory=$match?->category_id !== null
                         ? $categories->firstWhere('id',(int)$match->category_id) : null;
                     $candidate['category_id']=$validCategory !== null &&
+                        $match?->type===($item['direction']==='credit'?'income':'expense') &&
                         $validCategory->type===($item['direction']==='credit'?'income':'expense')
                             ? (int)$validCategory->id : null;
                 }

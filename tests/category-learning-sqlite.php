@@ -212,6 +212,11 @@ $db->exec("INSERT INTO lcc_banking_connectors_review_events
 $verified=$advisor->advise(1,9,[$row]);
 verifyLearning($verified['total_labels']===17,
  'explicitly accepted native link adds one verified training example');
+$db->exec("UPDATE transactions SET type='expense-transfer' WHERE id=150");
+$transfer=$advisor->advise(1,9,[$row]);
+verifyLearning($transfer['total_labels']===16,
+ 'reviewed transfer leg never teaches an operating expense category');
+$db->exec("UPDATE transactions SET type='expense' WHERE id=150");
 $db->exec('UPDATE transactions SET category_id=14 WHERE id=150');
 $stale=$advisor->advise(1,9,[$row]);
 verifyLearning($stale['total_labels']===16,

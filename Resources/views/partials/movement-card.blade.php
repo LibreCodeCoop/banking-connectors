@@ -103,6 +103,10 @@
                                                         ?? ($row['native_candidate_category_suggestion'] ?? null)
                                                         ?? ($row['learning_suggestion']['category_id'] ?? null);
                                                 @endphp
+                                                @if($singleEntryId !== null && $row['stage_state']==='pending' && count($row['candidate_details'])===1)
+                                                    <details class="mt-3 text-sm" id="banking-connectors-classify-without-link">
+                                                        <summary class="cursor-pointer text-gray-600">{{ trans('banking-connectors::general.classify_without_link') }}</summary>
+                                                @endif
                                                 <form method="POST"
                                                       action="{{ route('banking-connectors.account.category.update',['company_id'=>company_id(),'accountId'=>$selected->account_id,'entryId'=>$row['id']]) }}"
                                                       class="mt-3 space-y-2">
@@ -139,6 +143,7 @@
                                                         {{ trans('banking-connectors::general.save_category') }}
                                                     </x-button>
                                                 </form>
+                                                @if($singleEntryId !== null && $row['stage_state']==='pending' && count($row['candidate_details'])===1)</details>@endif
                                             @endif
                                         </section>
                                         <section>
@@ -201,6 +206,7 @@
                                                                     </option>
                                                                 @endforeach
                                                             </select>
+                                                        </label>
                                                             @if($singleEntryId !== null)
                                                                 @foreach($row['candidate_details'] as $candidate)
                                                                     @if(!empty($candidate['paid_bill']))
@@ -214,9 +220,8 @@
                                                                     @endif
                                                                 @endforeach
                                                             @endif
-                                                        </label>
                                                         <x-button type="submit" kind="secondary">
-                                                            {{ count($row['candidate_details'])===1
+                                                            {{ ($row['native_candidate_category_suggestion'] ?? null)!==null
                                                                 ? trans('banking-connectors::general.associate_and_inherit_category')
                                                                 : trans('banking-connectors::general.associate_transaction') }}
                                                         </x-button>

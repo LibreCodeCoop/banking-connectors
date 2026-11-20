@@ -165,6 +165,7 @@ return [
     'native_candidate_category_suggestion' => 'Category suggested by a possible existing ledger entry: :category (verify the link).',
     'native_candidate_not_proof' => 'Same account, date, direction and amount do not prove Pix recipient identity. Verify before confirming.',
     'native_candidate_bill_paid' => 'Bill already marked paid in Akaunting',
+    'classify_without_link' => 'Classify without linking',
     'associate_and_inherit_category' => 'Link and reuse category',
     'category_source_manual' => 'Assigned manually',
     'category_source_rule' => 'Suggested by an automated rule',

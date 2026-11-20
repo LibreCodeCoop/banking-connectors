@@ -210,8 +210,8 @@ final class CategoryLearningAdvisor
             JOIN {$this->transactions} t ON t.id=e.linked_transaction_id
               AND t.company_id=e.company_id AND t.account_id=e.account_id
               AND t.category_id=e.category_id AND t.deleted_at IS NULL
-              AND ((e.direction='credit' AND t.type IN ('income','income-transfer'))
-                OR (e.direction='debit' AND t.type IN ('expense','expense-transfer')))
+              AND ((e.direction='credit' AND t.type='income')
+                OR (e.direction='debit' AND t.type='expense'))
             JOIN {$this->categories} c ON c.id=e.category_id
               AND c.company_id=e.company_id AND c.enabled=1 AND c.deleted_at IS NULL
               AND ((e.direction='credit' AND c.type='income')
