@@ -67,7 +67,11 @@ does not alter Akaunting core or claim to settle invoices automatically.
   graph. Benchmark replacement models with holdout data before promotion.
 - **Native posting**: once separately enabled for a verified bank connection,
   scheduled polling may call the native Akaunting `CreateTransaction` job for
-  an entirely new, settled and unambiguous movement. A unique
+  an entirely new, settled and unambiguous movement. Activation writes a
+  per-connection high-water ID and UTC timestamp, and the publisher only
+  considers bank entries first discovered *after* those values, with recent
+  movement dates. Previously staged evidence remains in the review filters
+  without causing financial backfill. A unique
   company/account/source-to-native link is committed atomically with the
   native transaction. Replays cannot create duplicates. Pending invoices,
   bills, existing transactions (including transfer legs), unknown counterpart

@@ -118,8 +118,10 @@ final class ConnectionController extends Controller
                     ->where('a.type','bank')->where('a.enabled',1)
                     ->whereNull('a.deleted_at')
                     ->lockForUpdate()
-                    ->first(['c.id','c.state','c.fingerprint_key_commitment',
-                        'c.last_success_at','c.last_error_code','a.currency_code']);
+                    ->first(['c.id','c.account_id','c.state','c.fingerprint_key_commitment',
+                        'c.last_success_at','c.last_error_code','c.native_post_enabled',
+                        'c.native_post_after_entry_id','c.native_post_activated_at',
+                        'a.currency_code']);
                 if (!$binding) throw new DomainException('bank_connection_not_accessible');
                 if ($enabled && ($binding->state!=='enabled' ||
                     $binding->currency_code!=='BRL' ||
@@ -128,9 +130,23 @@ final class ConnectionController extends Controller
                     $binding->last_error_code!==null)) {
                     throw new DomainException('native_publication_requires_valid_bank');
                 }
+                $newlyEnabled=$enabled && !(bool)$binding->native_post_enabled;
+                $changes=['native_post_enabled'=>$enabled,'updated_at'=>now()];
+                if ($newlyEnabled) {
+                    // Atomic opt-in fence: existing bank history remains
+                    // reviewable but cannot silently become native accounting.
+                    $changes['native_post_after_entry_id']=(int)(
+                        DB::table('lcc_banking_connectors_entries')
+                            ->where('company_id',$company)
+                            ->where('account_id',(int)$binding->account_id)
+                            ->where('connection_id',$connectionId)
+                            ->max('id') ?? 0
+                    );
+                    $changes['native_post_activated_at']=\Illuminate\Support\Carbon::now('UTC');
+                }
                 DB::table('lcc_banking_connectors_connections')
                     ->where('id',$connectionId)->where('company_id',$company)
-                    ->update(['native_post_enabled'=>$enabled,'updated_at'=>now()]);
+                    ->update($changes);
                 return ['native_post_enabled'=>$enabled];
             });
         },$company,(int)$connectionId,'connection_saved',200);

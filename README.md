@@ -60,6 +60,9 @@ independent of Akaunting's proprietary Bank Feeds app.
   `CreateTransaction` service inside a source-bound, idempotent database
   transaction. An authorized company administrator opts in per bank connection
   after credentials are validated; existing installations default to **off**.
+  Enabling it records an activation source-ID/timestamp fence: previously
+  imported bank history stays reviewable, never silently posted retroactively.
+  Late-arriving historical movements also require manual review.
   Proven existing native transactions, potential outstanding invoices/bills,
   transfers and conflicting/ambiguous evidence are held for review instead
   of created again. An absent category uses dedicated **A classificar**

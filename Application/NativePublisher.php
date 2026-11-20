@@ -46,6 +46,7 @@ final class NativePublisher
             ->where('c.id',$connection)->where('c.company_id',$company)
             ->where('a.type','bank')->where('a.enabled',1)->whereNull('a.deleted_at')
             ->first(['c.id','c.account_id','c.provider','c.state','c.native_post_enabled',
+                'c.native_post_after_entry_id','c.native_post_activated_at',
                 'a.currency_code']);
         if (!$binding) throw new DomainException('bank_connection_not_accessible');
         if (!$dryRun && ((int)$binding->native_post_enabled !== 1 ||
@@ -63,10 +64,23 @@ final class NativePublisher
             ->whereIn('state',['read_only','enabled'])->exists();
         if ($otherFeeds) throw new DomainException('multiple_active_bank_feeds_require_review');
 
-        $entries=DB::table('lcc_banking_connectors_entries')
+        $live=(int)$binding->native_post_enabled===1;
+        if ($live && ($binding->native_post_after_entry_id===null ||
+            $binding->native_post_activated_at===null)) {
+            throw new DomainException('native_posting_activation_boundary_missing');
+        }
+        $query=DB::table('lcc_banking_connectors_entries')
             ->where('company_id',$company)->where('account_id',$binding->account_id)
             ->where('connection_id',$connection)
-            ->where('state','pending')
+            ->where('state','pending');
+        if ($live) {
+            // Never backfill existing bank rows on activation. A historical
+            // event discovered much later must also require manual review.
+            $query->where('id','>',(int)$binding->native_post_after_entry_id)
+                ->where('first_seen_at','>=',$binding->native_post_activated_at)
+                ->where('movement_date','>=',now()->subDays(5)->toDateString());
+        }
+        $entries=$query
             // Never starve new transactions behind repeated old review holds.
             ->orderBy('last_publication_attempt_at')->orderBy('movement_date')
             ->orderBy('id')->limit($max)->get(['id']);

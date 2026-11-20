@@ -28,6 +28,8 @@ final class SqliteStageFixture
             failure_count INTEGER NOT NULL DEFAULT 0, last_attempt_at DATETIME,
             certificate_valid_to DATETIME, credentials_checked_at DATETIME,
             native_post_enabled INTEGER NOT NULL DEFAULT 0,
+            native_post_after_entry_id BIGINT NULL,
+            native_post_activated_at DATETIME NULL,
             UNIQUE(company_id, account_id, provider)
         )");
         $db->exec("CREATE TABLE lcc_banking_connectors_entries (

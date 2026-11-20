@@ -46,7 +46,10 @@ durable cursor. Normal unattended polling is every 15 minutes by default:
 the implementation does not promise instantaneous Pix notifications.
 
 **Automatic posting to Akaunting starts disabled on every connection**,
-including upgrades. An authorized company administrator with permission
+including upgrades. The activation stores the last already-imported source
+ID and activation timestamp; these historical movements remain visible for
+manual review but cannot become new native entries retroactively. Older
+bank events discovered long after activation also require review. An authorized company administrator with permission
 to create transactions can explicitly enable it only when the connection
 is active, BRL, has valid key commitment and a successful bank read.
 
