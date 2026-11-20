@@ -4,6 +4,26 @@
 declare(strict_types=1);
 
 return [
+    'native_bank_tab' => 'Bank movements',
+    'native_bank_description' => 'Bank narration',
+    'native_search_filter_transaction' => 'Bank integration status',
+    'native_search_filter_movement' => 'Bank statement status',
+    'native_filter_transaction_linked' => 'Linked to bank movement',
+    'native_filter_transaction_posted' => 'Created by bank integration',
+    'native_filter_transaction_uncategorized' => 'Provisional category',
+    'native_filter_transaction_unlinked' => 'No statement link',
+    'native_filter_transaction_connected' => 'Connected bank account',
+    'native_filter_movement_needs_action' => 'Needs action',
+    'native_filter_movement_uncategorized' => 'Uncategorized',
+    'native_filter_movement_unlinked' => 'Unmatched',
+    'native_filter_movement_conflict' => 'Conflicts',
+    'native_filter_movement_imported' => 'All bank movements',
+    'native_filter_movement_posted' => 'Posted to ledger',
+    'native_filter_movement_matched' => 'Linked',
+    'native_filter_movement_ignored' => 'Ignored',
+    'native_action_view_entry' => 'View bank statement movement',
+    'native_action_review_bank' => 'Review bank movements',
+    'native_row_bank_linked' => 'Linked to bank statement',
     'native_create_transfer' => 'Register native transfer (verify both accounts)',
     'native_review_required' => 'Bank-origin and ledger evidence requires review.',
     'publication_issue' => [

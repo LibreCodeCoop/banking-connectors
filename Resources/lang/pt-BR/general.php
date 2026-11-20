@@ -4,6 +4,26 @@
 declare(strict_types=1);
 
 return [
+    'native_bank_tab' => 'Movimentações bancárias',
+    'native_bank_description' => 'Histórico do banco',
+    'native_search_filter_transaction' => 'Situação da integração bancária',
+    'native_search_filter_movement' => 'Situação do extrato bancário',
+    'native_filter_transaction_linked' => 'Com vínculo bancário',
+    'native_filter_transaction_posted' => 'Criada pela integração',
+    'native_filter_transaction_uncategorized' => 'Categoria provisória',
+    'native_filter_transaction_unlinked' => 'Sem vínculo com extrato',
+    'native_filter_transaction_connected' => 'Conta conectada ao banco',
+    'native_filter_movement_needs_action' => 'Precisam de ação',
+    'native_filter_movement_uncategorized' => 'Sem categoria',
+    'native_filter_movement_unlinked' => 'Sem associação',
+    'native_filter_movement_conflict' => 'Conflitos',
+    'native_filter_movement_imported' => 'Todas as movimentações',
+    'native_filter_movement_posted' => 'Publicadas no financeiro',
+    'native_filter_movement_matched' => 'Associadas',
+    'native_filter_movement_ignored' => 'Ignoradas',
+    'native_action_view_entry' => 'Ver movimentação do extrato',
+    'native_action_review_bank' => 'Conferir lançamentos do banco',
+    'native_row_bank_linked' => 'Vinculada ao extrato bancário',
     'native_create_transfer' => 'Registrar transferência nativa (confira as duas contas)',
     'native_review_required' => 'Aguardando revisão da origem bancária e do financeiro.',
     'publication_issue' => [
