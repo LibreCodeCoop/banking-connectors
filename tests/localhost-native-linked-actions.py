@@ -79,8 +79,9 @@ try:
     baseline=page("/2/banking/transactions")
     marker='data-banking-connectors-linked="'+str(transaction_id)+'"'
     link_action='banking-connectors-line-action-view-'+str(transaction_id)
-    if marker not in baseline or link_action not in baseline:
-        raise RuntimeError("Native row did not expose linked badge and per-row action")
+    evidence='data-banking-bank-details="'+str(transaction_id)+'"'
+    if marker not in baseline or link_action not in baseline or evidence not in baseline:
+        raise RuntimeError("Native row lost its linked-bank account subtitle or hover action")
     print("PASS native row shows linked-bank badge and the existing hover dropdown action")
 
     linked=page("/2/banking/transactions?search=bank_status:linked")
@@ -94,8 +95,8 @@ try:
 
     deep=page("/2/banking/transactions?search=bank_movement:imported account_id:3&bank_entry_id="+str(entry_id))
     if name not in deep or 'data-tabs-content="bank-feed"' not in deep or \
-       "bank-feed-native-transactions" not in deep:
-        raise RuntimeError("Per-row bank link did not resolve to exact imported source event")
+       "data-bank-row-narration=" not in deep:
+        raise RuntimeError("Bank evidence did not open the exact source record in the native table")
     print("PASS per-transaction native action opens exactly its company/account-bound bank evidence")
 finally:
     if entry_id is not None:

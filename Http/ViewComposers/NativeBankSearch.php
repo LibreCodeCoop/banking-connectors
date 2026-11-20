@@ -64,7 +64,15 @@ final class NativeBankSearch
         if (request()->has('bank_feed')) {
             return is_string(request()->query('bank_feed'));
         }
-        return self::token('bank_movement') !== null;
+        if (self::token('bank_movement') !== null) return true;
+        // Akaunting's native pins are persisted under favorites.tab.<user>.
+        // An explicit income/expense/status selection must override a pin.
+        if (request()->has('list_records') ||
+            self::token('type') !== null ||
+            self::token('bank_status') !== null) return false;
+        $pins=setting('favorites.tab.'.(int)auth()->id(),[]);
+        if (is_string($pins)) $pins=json_decode($pins,true);
+        return is_array($pins) && ($pins['transactions']??null)==='bank-feed';
     }
 
     public static function movementFilter(): string
@@ -86,6 +94,8 @@ final class NativeBankSearch
         // Unknown account values fail closed rather than revealing other
         // company data or converting array/multiple values into SQL.
         if (!is_string($raw) && !is_int($raw)) return 0;
+        // Multiple accounts are handled by the scoped SQL IN predicate.
+        if (is_string($raw) && preg_match('/^[1-9][0-9]*(,[1-9][0-9]*)+$/D',$raw)) return null;
         $id=filter_var($raw,FILTER_VALIDATE_INT,
             ['options'=>['min_range'=>1]]);
         return $id===false ? 0 : (int)$id;
@@ -117,8 +127,10 @@ final class NativeBankSearch
         if ($bankTab) {
             // Native bank tab uses the very same Akaunting Vue search field,
             // with valid company/account and source-status criteria only.
+            $supported=['type','account_id','paid_at','currency_code',
+                'category_id','contact_id'];
             $filters=array_values(array_filter($filters,
-                static fn($f)=>($f['key']??null)==='account_id'));
+                static fn($f)=>in_array($f['key']??null,$supported,true)));
             array_unshift($filters,$filter);
         } else {
             $filters[]=$filter;
