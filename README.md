@@ -29,10 +29,18 @@ independent of Akaunting's proprietary Bank Feeds app.
   a company-scoped worker immediately; a one-minute opt-in scheduler processes
   stranded manual requests, while normal automatic polling remains 15-minute.
   Neither HTTP controllers nor webhook diagnostics directly contact the bank.
-- Akaunting **Banking → Transactions** is the operational work queue with
-  filters for imported movements, unmatched, uncategorized, conflicts and
-  other pending actions. All movements remain visible even when not yet
-  published to the native financial ledger.
+- Akaunting **Banking → Transactions** retains the native Income, Expense,
+  All transactions and Recurring templates tabs, summaries, pagination and
+  standard search. Its **existing search dropdown** now includes
+  **Bank integration status** for native transactions. An additional native
+  **Bank movements** tab, starting at Needs action, uses the same search
+  component, table, filters and pagination for statement evidence that is
+  not necessarily a posted financial transaction.
+- The existing native transaction row hover menu gains bank statement/review
+  links on connected accounts; verified linked rows show a bank-link marker.
+  No separate search toolbar, sidebar item or second actions menu is added.
+  Bank movements still awaiting publication remain distinguishable from
+  native income/expense in Akaunting totals.
 - **Banking → Accounts → Bank integration** handles only connection setup,
   provider/certificate health, scheduled reads, **Synchronize now**, category
   rules and the separately authorized native publishing policy.

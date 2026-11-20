@@ -119,6 +119,7 @@ BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-acco
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-classification.py"
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-learning.py"
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-native-transactions.py"
+BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-native-linked-actions.py"
 if [[ -f "$BASE/app-root/modules/BankConnectorExample/module.json" ]]; then
     BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-external-connector.py"
     echo 'PASS optional independently installed bank connector E2E'

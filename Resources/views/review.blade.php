@@ -20,7 +20,7 @@
                         <div>
                             @if ($accountContext !== null)
                                 <a href="{{ $tab==='review'
-                                       ? route('transactions.index',['company_id'=>company_id(),'bank_feed'=>'needs_action'])
+                                       ? route('transactions.index',['company_id'=>company_id(),'search'=>'bank_movement:needs_action'])
                                        : route('accounts.show', $accountContext->id) }}"
                                    class="text-sm text-purple hover:underline" id="banking-connectors-back-to-account">
                                     &larr; {{ $tab==='review'

@@ -2,33 +2,53 @@
 
 ## Where to work
 
-Open **Banking → Transactions** for regular financial work. The Banking
-Connectors panel is integrated with the native page, and the default tab
-continues to show Akaunting's own financial transactions and totals.
-The adjacent bank-feed filters expose source movements that have not yet
-become native transactions; this separation prevents an imported statement
-from being counted as posted financial income.
+Open **Banking → Transactions** for normal financial work. Its native
+**Income**, **Expense**, **All transactions** and **Recurring templates**
+tabs, financial totals and regular search field remain unchanged.
+There is **no separate bank-filter toolbar**.
 
-- **Needs action**: unlinked bank movements, source conflicts and posted
-  movements still in the dedicated provisional category.
-- **Uncategorized**: pending imported movements lacking a category, or
-  published native transactions in the provisional category.
-- **Unmatched**: pending movements with no accepted native link. Check
-  suggestions and document information before creating a new entry.
-- **Conflicts**: the bank returned changing facts for an existing source ID.
-  Do not force reconciliation before verifying the bank records.
-- **Imported from bank**: all staged source movements, including reviewed,
-  posted and ignored.
-- **Posted to ledger**: movements that created Akaunting native
-  income/expense transactions.
-- **Linked**: accepted matches with an existing native transaction.
-- **Ignored**: deliberately dismissed imports; bank evidence remains.
+Inside Akaunting's **existing search dropdown** (on financial transactions),
+select **Bank integration status**. Values include **Linked to bank
+movement**, **Created by bank integration**, **Provisional category**,
+**No statement link** and **Connected bank account**. The native financial
+list, sorting and pagination apply these criteria at the database query
+level, keeping company and account isolation. A transaction on a connected
+bank account without a verified bank link may be filtered without being
+mistaken for an unimported financial record.
 
-You can open the native transaction for any linked/posted row, adjust its
-category when the existing record is unlocked and permitted, or open the
-bank review for an ambiguous or unlinked movement. Status reasons are
-displayed as fixed, localized codes without exposing bank credentials or
-provider identifiers.
+The same native page has an additional **Bank movements** tab, which starts
+with **Needs action** selected. It uses Akaunting's built-in search control,
+table, pagination and hover-action menu, with the **Bank statement status**
+filter and the native **Account** filter. Available statuses:
+
+- **Needs action**: pending/unmatched events, source conflicts and
+  already published entries still using an *A classificar* category.
+- **Uncategorized**: pending imports without a category or native postings
+  left in the dedicated provisional category.
+- **Unmatched**: no accepted correspondence with a native transaction.
+- **Conflicts**: source data changed under the same bank movement identity.
+- **All bank movements**: every imported source event, reviewed or pending.
+- **Posted to ledger**: source events that created a native transaction.
+- **Linked**: manually accepted correspondences to existing native records.
+- **Ignored**: explicitly dismissed bank movements retained for audit.
+
+**Bank source movements are not financial transactions until published or
+associated with an existing native entry.** They therefore appear in the
+bank-movements tab, not as fabricated native income/expense rows.
+
+Every linked native financial transaction displays a bank-link indicator
+in its normal row. The *existing* Akaunting hover-actions menu adds
+**View bank statement movement** for linked records and **Review bank
+movements** for transactions on connected bank accounts. A direct source
+link opens the exact, company/account-scoped bank movement; there is no
+second actions menu. Bank source rows have their own native-style actions
+for reviewing, opening a verified native transaction, or manually opening
+Akaunting's transfer flow.
+
+For an eligible linked or pending movement, category changes remain
+permission-gated, idempotent, auditable and scoped to the selected bank
+account. Status reasons use localized codes, never provider credentials.
+Previously bookmarked \`bank_feed\` URLs still select the bank-movements tab.
 
 ## Configure an account
 

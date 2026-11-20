@@ -7,6 +7,8 @@ namespace Modules\BankingConnectors\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use App\Events\Common\SearchStringApplying;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Modules\BankingConnectors\Application\ReadOnlySynchronizer;
@@ -33,6 +35,8 @@ use Modules\BankingConnectors\Connectors\Sicoob\SicoobStatementMapper;
 use Modules\BankingConnectors\Connectors\Sicoob\SicoobCredentialResolver;
 use Modules\BankingConnectors\Http\ViewComposers\AccountActions;
 use Modules\BankingConnectors\Http\ViewComposers\NativeTransactionsIndex;
+use Modules\BankingConnectors\Http\ViewComposers\NativeBankSearch;
+use Modules\BankingConnectors\Http\ViewComposers\NativeTransactionActions;
 
 /**
  * Registers the module's dedicated tables and read-only domain services.
@@ -106,7 +110,18 @@ final class Main extends ServiceProvider
         // Integrate with each native bank account's action dropdown rather than
         // publishing a second sidebar entry. The composer checks ACL and tenant.
         View::composer('components.accounts.index.accounts', AccountActions::class);
-        View::composer('banking.transactions.index', NativeTransactionsIndex::class);
+        // Reuse native tabs/search component and the existing row hover menu.
+        // Only the Transactions route is augmented; the original ledger and
+        // all other Akaunting components remain unaffected.
+        View::composer('components.transactions.index.content', NativeTransactionsIndex::class);
+        View::composer('components.transactions.index.transaction',
+            NativeTransactionActions::class . '@prepare');
+        View::composer('components.table.actions',
+            NativeTransactionActions::class . '@append');
+        View::composer('components.search-string',
+            NativeBankSearch::class . '@extendSearch');
+        Event::listen(SearchStringApplying::class,
+            NativeBankSearch::class . '@applyNativeSearch');
         if ($this->app->runningInConsole()) {
             $this->commands([
                 PollConnection::class, PollAll::class, PublishConnection::class,

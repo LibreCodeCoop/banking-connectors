@@ -18,36 +18,29 @@ use Illuminate\Support\Facades\Route;
  */
 final class NativeTransactionsIndex
 {
-    private const FILTERS=['all','needs_action','uncategorized','unlinked','conflict','imported','posted','matched','ignored'];
-
     public function compose(View $view): void
     {
-        if (!auth()->check() || !auth()->user()->can('read-banking-transactions') ||
-            !auth()->user()->can('read-banking-accounts')) return;
-        $company=function_exists('company_id')?(int)company_id():0;
-        if ($company<1 || !Route::has('banking-connectors.transactions.review')) return;
+        if (!NativeBankSearch::scoped() ||
+            !Route::has('banking-connectors.transactions.review')) return;
 
-        $filter=(string)request()->query('bank_feed','all');
-        if (!in_array($filter,self::FILTERS,true)) $filter='all';
-        $account=filter_var(request()->query('bank_account_id'),FILTER_VALIDATE_INT);
-        $account=$account!==false&&$account>0?(int)$account:null;
-
-        $query=$this->query($company,$account);
-        $counts=[
-            'all'=>(clone $query)->count(),
-            'needs_action'=>(clone $query)->where(function ($q): void { $this->whereNeedsAction($q); })->count(),
-            'uncategorized'=>(clone $query)->where(function ($q): void { $this->whereUncategorized($q); })->count(),
-            'unlinked'=>(clone $query)->where('e.state','pending')->whereNull('e.linked_transaction_id')->count(),
-            'conflict'=>(clone $query)->where('e.state','conflict')->count(),
-            'imported'=>(clone $query)->count(),
-            'posted'=>(clone $query)->where('p.outcome','created')->count(),
-            'matched'=>(clone $query)->where('e.state','reviewed')->whereNull('p.id')->count(),
-            'ignored'=>(clone $query)->where('e.state','dismissed')->count(),
-        ];
+        $active=NativeBankSearch::isBankTab();
+        $filter=NativeBankSearch::movementFilter();
+        $account=NativeBankSearch::accountFilter();
         $rows=collect();
-        if ($filter!=='all') {
-            $selected=$this->filter($query,$filter);
-            $rows=$selected->orderByDesc('e.movement_date')->orderByDesc('e.id')
+        $categories=collect();
+        if ($active) {
+            $company=(int)company_id();
+            $query=$this->filter($this->query($company,$account),$filter);
+            // An action on an existing native row deep-links to one bank
+            // movement. Company/account scope remains enforced by the joins.
+            $requested=request()->query('bank_entry_id');
+            if ($requested!==null) {
+                $id=filter_var($requested,FILTER_VALIDATE_INT,
+                    ['options'=>['min_range'=>1]]);
+                abort_unless($id!==false && is_scalar($requested),422);
+                $query->where('e.id',(int)$id);
+            }
+            $rows=$query->orderByDesc('e.movement_date')->orderByDesc('e.id')
                 ->select(['e.id','e.account_id','e.connection_id','e.company_id',
                     'e.bank_description','e.amount_cents','e.currency','e.direction',
                     'e.movement_date','e.state','e.category_id','e.category_source',
@@ -57,30 +50,30 @@ final class NativeTransactionsIndex
                     'ncat.name as native_category_name','ncat.code as native_category_code',
                     't.category_id as native_category_id','t.document_id','t.reconciled',
                     't.parent_id','t.split_id','t.deleted_at as native_deleted_at'])
-                ->paginate(25)
-                ->appends(request()->only('bank_feed','bank_account_id'));
+                ->paginate(25)->appends(request()->only('search','bank_feed','bank_account_id','bank_entry_id'));
+            if (auth()->user()->can('update-banking-transactions') &&
+                auth()->user()->can('update-banking-accounts')) {
+                $categories=DB::table('categories')->where('company_id',$company)
+                    ->whereIn('type',['income','expense'])->where('enabled',1)
+                    ->whereNull('deleted_at')->orderBy('name')->get(['id','name','type']);
+            }
         }
-        $categories=DB::table('categories')->where('company_id',$company)
-            ->whereIn('type',['income','expense'])->where('enabled',1)
-            ->whereNull('deleted_at')->orderBy('name')->get(['id','name','type']);
-        $accounts=DB::table('lcc_banking_connectors_connections as c')
-            ->join('accounts as a',static function($join): void {
-                $join->on('a.id','=','c.account_id')->on('a.company_id','=','c.company_id');
-            })
-            ->where('c.company_id',$company)->where('a.type','bank')
-            ->whereNull('a.deleted_at')->distinct()->orderBy('a.name')
-            ->get(['a.id','a.name']);
         $view->with([
+            // Keep the bank tab reachable when a newly onboarded company
+            // has bank connections but zero native financial transactions.
+            'bankFeedHasConnections'=>DB::table('lcc_banking_connectors_connections')
+                ->where('company_id',(int)company_id())->exists(),
+            'bankFeedActive'=>$active,
             'bankFeedFilter'=>$filter,
             'bankFeedAccount'=>$account,
-            'bankFeedCounts'=>$counts,
             'bankFeedRows'=>$rows,
             'bankFeedCategories'=>$categories,
-            'bankFeedAccounts'=>$accounts,
             'bankFeedCanClassify'=>auth()->user()->can('update-banking-transactions') &&
                 auth()->user()->can('update-banking-accounts'),
         ]);
-        $view->setPath(__DIR__.'/../../Resources/views/native-transactions-index.blade.php');
+        // The copied native content component keeps Akaunting's own tabs,
+        // totals, filters and table intact and adds one native tab only.
+        $view->setPath(__DIR__.'/../../Resources/views/native-transactions-content.blade.php');
     }
 
     private function query(int $company,?int $account)
