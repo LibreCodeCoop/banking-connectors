@@ -144,8 +144,8 @@ final class MatchingEngine
     {
         $type = $row['type'] ?? null;
         $direction = match ($type) {
-            'income' => 'credit',
-            'expense' => 'debit',
+            'income', 'income-transfer' => 'credit',
+            'expense', 'expense-transfer' => 'debit',
             default => null,
         };
         return $direction === $bank->direction

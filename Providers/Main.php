@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Modules\BankingConnectors\Application\ReadOnlySynchronizer;
+use Modules\BankingConnectors\Application\NativePublisher;
+use Modules\BankingConnectors\Domain\NativePostingDecision;
+use Modules\BankingConnectors\Console\Commands\PublishConnection;
 use Modules\BankingConnectors\Application\ReviewDecisionService;
 use Modules\BankingConnectors\Application\ReviewPreview;
 use Modules\BankingConnectors\Application\ConnectionControl;
@@ -29,6 +32,7 @@ use Modules\BankingConnectors\Infrastructure\PdoEntryStage;
 use Modules\BankingConnectors\Connectors\Sicoob\SicoobStatementMapper;
 use Modules\BankingConnectors\Connectors\Sicoob\SicoobCredentialResolver;
 use Modules\BankingConnectors\Http\ViewComposers\AccountActions;
+use Modules\BankingConnectors\Http\ViewComposers\NativeTransactionsIndex;
 
 /**
  * Registers the module's dedicated tables and read-only domain services.
@@ -55,6 +59,8 @@ final class Main extends ServiceProvider
             );
         });
         $this->app->bind(ReviewPreview::class, ReviewPreview::class);
+        $this->app->bind(NativePostingDecision::class, NativePostingDecision::class);
+        $this->app->bind(NativePublisher::class, NativePublisher::class);
         $this->app->bind(ReviewDecisionService::class, static function (): ReviewDecisionService {
             return new ReviewDecisionService(
                 DB::connection()->getPdo(),
@@ -100,9 +106,10 @@ final class Main extends ServiceProvider
         // Integrate with each native bank account's action dropdown rather than
         // publishing a second sidebar entry. The composer checks ACL and tenant.
         View::composer('components.accounts.index.accounts', AccountActions::class);
+        View::composer('banking.transactions.index', NativeTransactionsIndex::class);
         if ($this->app->runningInConsole()) {
             $this->commands([
-                PollConnection::class, PollAll::class,
+                PollConnection::class, PollAll::class, PublishConnection::class,
                 BankHealth::class, ProbeSicoobCredentials::class,
             ]);
             // Explicit opt-in only; installing the module does not contact

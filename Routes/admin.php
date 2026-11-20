@@ -16,7 +16,18 @@ Route::admin('banking-connectors', static function (): void {
     Route::post('connections', [ConnectionController::class, 'create'])->name('connections.create');
     Route::post('connections/{connectionId}/state', [ConnectionController::class, 'state'])->name('connections.state');
     Route::post('connections/{connectionId}/request-sync', [ConnectionController::class, 'request'])->name('connections.request');
+    Route::post('connections/{connectionId}/native-publishing', [ConnectionController::class, 'nativePublishing'])->name('connections.native-publishing');
 });
+
+// Review of bank exceptions from the native transactions workspace.
+Route::admin('banking-connectors', static function (): void {
+    Route::get('bank-feed/accounts/{accountId}', [ReviewController::class, 'reviewAccount'])
+        ->whereNumber('accountId')->name('review');
+}, [
+    'prefix'=>'banking/transactions',
+    'as'=>'banking-connectors.transactions.',
+    'namespace'=>null,
+]);
 
 // Native account-scoped entry point. Preserve the existing index route for
 // old bookmarks and API clients; all account ID checks are server-side.

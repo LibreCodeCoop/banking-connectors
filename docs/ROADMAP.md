@@ -59,21 +59,35 @@ even to staging.
 search beyond exact amount/account/direction constraints, comprehensive
 reconciliation of transfers, refunds, partial invoice payments and historical
 snapshots, accountant verification and independent visual/accessibility review.
-No automatic native posting or settlement is enabled.
+Automatic native posting is available per authorized connection, disabled by default; document settlement and transfer pairing remain explicit exceptions.
 
-## C. Native financial posting — not implemented
+## C. Native financial posting — implemented with per-bank approval
 
-- Confirm policy with accounting, including treatment of historic entries,
-  transfer pairs, reversals, document payments and opening balances.
-- Before using a historical review decision, recompute eligibility against
-  the *current* native transaction and supporting documents.
-- Invoke native Akaunting domain jobs/services, not raw SQL updates.
-- Stage posting intents, implement idempotency and recovery from uncertain
-  results, append immutable events, and require explicit permission/approval.
-- Run synthetic integration/E2E and independent accounting verification.
-  Native paid/reconciled states must remain correct after retries.
+- Native Banking → Transactions shows imported bank movements alongside a
+  familiar native ledger interface, with exception filters for unmatched,
+  uncategorized, conflicting, ignored and posted records.
+- Disabled by default for existing bank connections. A user with native
+  transaction create and bank administration permissions explicitly enables
+  posting for a verified, active, BRL bank connection.
+- The publishing service evaluates each source movement against a bounded
+  company/account-scoped search of native income, expense and transfer legs.
+  Native candidates, conflicting bank revisions, possible internal transfers,
+  and likely open invoices/bills are **held**, never automatically duplicated.
+- New unambiguous movements use the native Akaunting CreateTransaction job,
+  native income/expense categories, and a source-to-native unique binding
+  committed in one database transaction. Missing categories become
+  dedicated A classificar native categories, visible under Banking → Transactions.
+- Current publishing state and fixed incident codes are visible to reviewers.
+  Deterministic rollback-only synthetic integration proves native creation,
+  replay safety, foreign-company rejection, duplicate/transfer/document
+  restraint and preservation of user financial data.
 
-There is **no automatic posting** merely because a candidate was reviewed.
+**Deliberate boundary:** income/expense creation does not settle documents,
+reconcile a transaction, select tax rates or initiate payments. Transfer
+pairs require human confirmation of both owned accounts; a guessed description
+does not justify creating two legs. Production enablement should follow a
+dry-run, accountant review of historical entries and verified backup/restore.
+Existing bank polling and imported source evidence remain intact.
 
 ## D. Operational Sicoob parity — partially implemented
 
@@ -93,7 +107,8 @@ There is **no automatic posting** merely because a candidate was reviewed.
 - Remaining: production OpenBao role/path mapping and Sicoob-approved mounted
   certificates; provider-verified quotas and actual outage recovery; activate
   external alert delivery, retention approval and production deployment gates.
-  No unattended bank polling is enabled.
+  Unattended bank polling is disabled by default at install; production
+  operators can explicitly enable the validated connection and scheduler.
 - Provide safe user-facing disable/reconnect and historical resume flows;
   the CLI initial backfill already requires an explicit start date.
 - Validate real Sicoob throttling, outages, malformed responses and expired

@@ -58,7 +58,8 @@ final class ClassificationController extends Controller
             'apply_native'=>'nullable|in:0,1',
             'expected_native_category_id'=>'nullable|integer|min:1',
             'request_key'=>['required','regex:/^[a-f0-9]{32}$/D'],
-            'return_filter'=>'nullable|in:pending,reviewed,dismissed,all',
+            'return_filter'=>'nullable|in:pending,reviewed,dismissed,all,needs_action,uncategorized,unlinked,conflict,posted,ignored',
+            'return_to'=>'nullable|in:transactions',
         ]);
         $category=isset($v['category_id'])?(int)$v['category_id']:null;
         $expected=isset($v['expected_native_category_id'])
@@ -107,7 +108,15 @@ final class ClassificationController extends Controller
         if ($request->expectsJson()) {
             return response()->json(['data'=>$result],200);
         }
-        return redirect()->route('banking-connectors.account.show',[
+        if ($tab==='review' && $request->input('return_to')==='transactions') {
+            $filter=(string)$request->input('return_filter','needs_action');
+            return redirect()->route('transactions.index',[
+                'company_id'=>$company,'bank_feed'=>$filter,
+            ])->with('success',trans('banking-connectors::general.classification_saved'));
+        }
+        return redirect()->route($tab==='review'
+            ?'banking-connectors.transactions.review'
+            :'banking-connectors.account.show',[
             'company_id'=>$company,'accountId'=>$account,'tab'=>$tab,
             'filter'=>$tab==='review'?(string)$request->input('return_filter','pending'):null,
         ])->with('success', trans('banking-connectors::general.classification_saved'));

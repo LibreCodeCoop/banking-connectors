@@ -20,6 +20,9 @@ checkNative($mapped['date'] === '2026-11-11' &&
     $mapped['amount_cents'] === 10010 && $mapped['type'] === 'expense',
     'native API expense amount and timezone date normalize');
 $mappedIncome = $mapper->map(array_replace($row, ['type' => 'income', 'amount' => '1.23']));
+$mappedTransfer=$mapper->map(array_replace($row,['type'=>'expense-transfer']));
+checkNative($mappedTransfer['type']==='expense-transfer',
+    'native transfer legs are eligible for linking instead of duplicated expenses');
 checkNative($mappedIncome['amount_cents'] === 123, 'integer cents from decimal string');
 $invalid = [
     [array_replace($row, ['account_id' => 0]), 'invalid_native_identity'],

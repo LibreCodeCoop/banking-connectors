@@ -94,6 +94,48 @@ final class ConnectionController extends Controller
         }, $company, $connectionId, 'sync_queued', 202);
     }
 
+    /**
+     * Opt in to native financial creation only for a previously validated
+     * and enabled bank connection. This is a separate authorization from
+     * permitting read-only bank statement polling.
+     */
+    public function nativePublishing(Request $request): JsonResponse|RedirectResponse
+    {
+        $company=$this->authorizedCompany(true);
+        abort_unless(auth()->user()->can('create-banking-transactions'),403);
+        $connectionId=filter_var($request->route('connectionId'),FILTER_VALIDATE_INT);
+        abort_unless($connectionId!==false && $connectionId>0,404);
+        $values=$request->validate(['enabled'=>'required|in:0,1']);
+        return $this->respond($request,function () use($company,$connectionId,$values): array {
+            $enabled=(string)$values['enabled']==='1';
+            return DB::transaction(function () use ($company,$connectionId,$enabled): array {
+                $binding=DB::table('lcc_banking_connectors_connections as c')
+                    ->join('accounts as a',static function($join):void {
+                        $join->on('a.company_id','=','c.company_id')
+                            ->on('a.id','=','c.account_id');
+                    })
+                    ->where('c.id',$connectionId)->where('c.company_id',$company)
+                    ->where('a.type','bank')->where('a.enabled',1)
+                    ->whereNull('a.deleted_at')
+                    ->lockForUpdate()
+                    ->first(['c.id','c.state','c.fingerprint_key_commitment',
+                        'c.last_success_at','c.last_error_code','a.currency_code']);
+                if (!$binding) throw new DomainException('bank_connection_not_accessible');
+                if ($enabled && ($binding->state!=='enabled' ||
+                    $binding->currency_code!=='BRL' ||
+                    $binding->last_success_at===null ||
+                    $binding->fingerprint_key_commitment===null ||
+                    $binding->last_error_code!==null)) {
+                    throw new DomainException('native_publication_requires_valid_bank');
+                }
+                DB::table('lcc_banking_connectors_connections')
+                    ->where('id',$connectionId)->where('company_id',$company)
+                    ->update(['native_post_enabled'=>$enabled,'updated_at'=>now()]);
+                return ['native_post_enabled'=>$enabled];
+            });
+        },$company,(int)$connectionId,'connection_saved',200);
+    }
+
     private function authorizedCompany(bool $poll): int
     {
         abort_unless(auth()->check() && auth()->id() !== null, 401);

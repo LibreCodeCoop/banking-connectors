@@ -22,7 +22,7 @@ final class AkauntingTransactionMapper
         if (!$id || !$companyId || !$accountId || $id < 1 || $companyId < 1 || $accountId < 1) {
             throw new InvalidArgumentException('invalid_native_identity');
         }
-        if (!in_array($row['type'] ?? null, ['income', 'expense'], true)) {
+        if (!in_array($row['type'] ?? null, ['income', 'expense', 'income-transfer', 'expense-transfer'], true)) {
             throw new InvalidArgumentException('unsupported_native_type');
         }
         $dateText = $row['paid_at'] ?? null;

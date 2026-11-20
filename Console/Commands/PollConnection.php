@@ -11,6 +11,7 @@ use DomainException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Modules\BankingConnectors\Application\ReadOnlySynchronizer;
+use Modules\BankingConnectors\Application\NativePublisher;
 use Modules\BankingConnectors\Application\ConnectionControl;
 use Modules\BankingConnectors\Infrastructure\MysqlSyncLock;
 use Modules\BankingConnectors\Application\BankConnectorRegistry;
@@ -36,7 +37,7 @@ final class PollConnection extends Command
 
     protected $description = 'Read verified bank statements into staging using registered bank connectors';
 
-    public function handle(ReadOnlySynchronizer $synchronizer, ConnectionControl $controls, BankConnectorRegistry $registry): int
+    public function handle(ReadOnlySynchronizer $synchronizer, ConnectionControl $controls, BankConnectorRegistry $registry, NativePublisher $publisher): int
     {
         $record = null;
         $recordFailure = false;
@@ -55,7 +56,7 @@ final class PollConnection extends Command
                 ->whereNull('a.deleted_at')
                 ->first([
                     'c.id', 'c.company_id', 'c.account_id', 'c.provider', 'c.credential_reference',
-                    'c.cursor_date', 'c.poll_request_key',
+                    'c.cursor_date', 'c.poll_request_key', 'c.native_post_enabled', 'c.state',
                     'a.currency_code', 'a.number', 'a.type',
                 ]);
             if ($record === null || (string) $record->type !== 'bank') {
@@ -124,14 +125,26 @@ final class PollConnection extends Command
                 return $counts;
             });
 
+            // Only an explicitly enabled per-company connection may publish
+            // financial records. Pending ledger writes are retried on future
+            // successful polls without downloading source data twice.
+            $publication = ['created'=>0,'held'=>0,'errors'=>0];
+            if ($record->state === 'enabled' && (int)$record->native_post_enabled === 1) {
+                $publication = $publisher->run(
+                    (int)$record->company_id,(int)$record->id,false,100
+                );
+            }
+
             $this->line(json_encode([
                 'status' => 'ok', 'connection_id' => (int) $id,
                 'period_start' => $from->format('Y-m-d'), 'through' => $counts['through'],
                 'inserted' => $counts['inserted'], 'duplicates' => $counts['duplicates'],
                 'conflicts' => $counts['conflicts'], 'windows' => $counts['windows'],
-                'akaunting_financial_writes' => 0,
+                'akaunting_financial_writes' => $publication['created'],
+                'awaiting_review' => $publication['held'],
+                'publishing_errors' => $publication['errors'],
             ], JSON_THROW_ON_ERROR));
-            return self::SUCCESS;
+            return $publication['errors']>0 ? self::FAILURE : self::SUCCESS;
         } catch (Throwable $error) {
             // The diagnostic mode never mutates state. A concurrent worker
             // taking the named lock is also not a provider failure.

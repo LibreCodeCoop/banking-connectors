@@ -27,6 +27,7 @@ final class SqliteStageFixture
             poll_request_key CHAR(32), next_retry_at DATETIME,
             failure_count INTEGER NOT NULL DEFAULT 0, last_attempt_at DATETIME,
             certificate_valid_to DATETIME, credentials_checked_at DATETIME,
+            native_post_enabled INTEGER NOT NULL DEFAULT 0,
             UNIQUE(company_id, account_id, provider)
         )");
         $db->exec("CREATE TABLE lcc_banking_connectors_entries (
@@ -38,6 +39,9 @@ final class SqliteStageFixture
             currency CHAR(3) NOT NULL, bank_description VARCHAR(240),
             category_id INTEGER NULL, category_source VARCHAR(16) NULL,
             category_rule_id BIGINT NULL,
+            publication_issue_code VARCHAR(72) NULL,
+            last_publication_attempt_at DATETIME NULL,
+            publication_failures INTEGER NOT NULL DEFAULT 0,
             state VARCHAR(24) NOT NULL DEFAULT 'pending',
             linked_transaction_id BIGINT, conflict_count INTEGER NOT NULL DEFAULT 0,
             first_seen_at DATETIME NOT NULL, last_seen_at DATETIME NOT NULL,
@@ -61,6 +65,16 @@ final class SqliteStageFixture
             id INTEGER PRIMARY KEY, company_id INTEGER NOT NULL,
             name TEXT NULL, type VARCHAR(20), currency_code TEXT NULL,
             enabled INTEGER NOT NULL DEFAULT 1, deleted_at DATETIME NULL
+        )");
+        $db->exec("CREATE TABLE lcc_banking_connectors_native_publications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INT NOT NULL, account_id INT NOT NULL,
+            connection_id INT NOT NULL, entry_id INT NOT NULL,
+            native_transaction_id INT NOT NULL,
+            outcome VARCHAR(24) NOT NULL, reason_code VARCHAR(72) NOT NULL,
+            occurred_at DATETIME NOT NULL,
+            UNIQUE(company_id,entry_id),
+            UNIQUE(company_id,account_id,native_transaction_id)
         )");
         $db->exec('CREATE INDEX lcc_bc_entry_scope
             ON lcc_banking_connectors_entries(company_id, account_id, state, id)');

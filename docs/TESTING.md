@@ -120,6 +120,19 @@ required). This is an integration point for monitoring, **not** evidence that
 Zabbix alert delivery has already been configured.
 
 The combined local regression is `bash tests/run-local-verification.sh`.
+
+`tests/native-posting-decision.php` covers duplicate protection, incomplete
+candidate reads, transfers and document holds. `tests/local-native-publication.php`
+runs the real Akaunting CreateTransaction job in a synthetic rollback-only
+MySQL transaction. It checks exact amount/currency/company/account,
+provisional categories, immutable source linking, replay idempotency,
+foreign company denial, existing native payments, transfers and a synthetic
+unpaid invoice. Every write, including the fake invoice and account, is
+rolled back before the test returns. `tests/localhost-native-transactions.py`
+logs in as a synthetic user and verifies Banking → Transactions retains
+native actions, exposes the feed filters, and separates account configuration
+from transaction-review actions. The native publisher's production flag
+defaults to off and is not enabled by the test suite.
 `tests/category-learning-sqlite.php` verifies supervised feedback, conservative
 abstention, unknown words, opposite-direction behavior, unique counterparty
 matches, ambiguous names, company/account isolation and correction of old
@@ -169,6 +182,9 @@ evidence includes network failure/recovery with real bank throttling,
 live Sicoob throttling/outage behavior, real production OpenBao mapping,
 authorized certificate delivery, certificate renewal and deployment rollback;
 synthetic crash recovery, OpenBao Agent rotation and backup/restore/upgrade
-have passed. Native financial posting is deliberately not implemented and
-requires an independently approved accounting and security contract.
+have passed. Native financial publishing now exists behind a disabled-by-default
+per-connection policy. Its conservative bookkeeping contract and rollback-only
+Akaunting domain test have passed; activation with real historical data still
+requires a reviewed dry-run, tenant-isolated database backup, scoped financial
+authorization and an operational rollback plan.
 MCP route discovery alone does not prove the MCP is functional.
