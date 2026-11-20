@@ -211,8 +211,19 @@ final class ReviewController extends Controller
                     $candidate['description'] = $match?->description;
                     $candidate['category_name'] = $match?->category_id !== null
                         ? ($categoryNames[(int)$match->category_id] ?? null) : null;
+                    $validCategory=$match?->category_id !== null
+                        ? $categories->firstWhere('id',(int)$match->category_id) : null;
+                    $candidate['category_id']=$validCategory !== null &&
+                        $validCategory->type===($item['direction']==='credit'?'income':'expense')
+                            ? (int)$validCategory->id : null;
                 }
                 unset($candidate);
+                $item['native_candidate_category_suggestion']=null;
+                if ($item['stage_state']==='pending' && $item['category_id']===null &&
+                    count($item['candidate_details'])===1) {
+                    $item['native_candidate_category_suggestion']=
+                        $item['candidate_details'][0]['category_id'];
+                }
             }
             unset($item);
             // The model is read-only and learns only from human audit events.
@@ -228,6 +239,29 @@ final class ReviewController extends Controller
                 $item['possible_counterparty'] = $learned['contacts'][$item['id']] ?? null;
             }
             unset($item);
+            // Bills are not bank permissions. Show document provenance only
+            // with explicit native purchase access and only on one entry.
+            if ($entryId !== null && $report['items'] !== [] &&
+                auth()->user()->can('read-purchases-bills')) {
+                $candidateDocs=[];
+                foreach ($report['items'][0]['candidate_details'] as $candidate) {
+                    $native=$nativeById->get($candidate['id']);
+                    if ($native?->document_id !== null) $candidateDocs[]=(int)$native->document_id;
+                }
+                $paidBills=$candidateDocs===[] ? collect() : DB::table('documents')
+                    ->where('company_id',$companyId)->whereIn('id',array_unique($candidateDocs))
+                    ->where('type','bill')->where('status','paid')->whereNull('deleted_at')
+                    ->get(['id','document_number'])->keyBy('id');
+                foreach ($report['items'][0]['candidate_details'] as &$candidate) {
+                    $native=$nativeById->get($candidate['id']);
+                    $bill=$native?->document_id!==null
+                        ? $paidBills->get((int)$native->document_id) : null;
+                    $candidate['paid_bill']=$bill===null ? null : [
+                        'id'=>(int)$bill->id,'number'=>(string)$bill->document_number,
+                    ];
+                }
+                unset($candidate);
+            }
             // Invoice visibility is a separate Akaunting permission, not
             // implied by the right to read bank movements.
             if ($entryId !== null && $report['items'] !== []) {
