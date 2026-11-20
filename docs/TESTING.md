@@ -250,3 +250,12 @@ accepted links, rejects stale/reopened/unproven links and prevents cross-tenant
 learning. `tests/inherited-category-sqlite.php` checks the UI preview source and
 replay persistence of the derived label. The HTTP regression tests exercise
 rendering but do not post any real financial association.
+
+### Masked Sicoob Pix recipient to paid bill provisional relation
+
+`php tests/masked-pix-bill-sqlite.php` verifies strict mask recognition,
+visible-digit comparison, same-company/vendor authorization inputs, exact
+amount, existing paid bill/payment, contradictory contact identities, dates,
+other-bank or opposite-direction scope, duplicate bills, payment reuse,
+colliding masks and zero native financial writes. It runs only with an
+in-memory SQLite fixture; no real bank or accounting write is issued.
