@@ -240,6 +240,59 @@ final class PdoEntryStage
     }
 
     /**
+     * Reconcile only bank metadata from a verified statement; never call the
+     * native publisher, touch statement cursors, or change review decisions.
+     * Does not create records when the original source identity is missing.
+     */
+    public function backfillStatementDetails(int $connection,int $company,int $account,
+        BankEntry $entry,string $hmacSecret,bool $apply=false): string
+    {
+        if ($connection<1 || $company<1 || $account<1 ||
+            $entry->companyId!==$company || $entry->accountId!==$account ||
+            strlen($hmacSecret)<32) throw new InvalidArgumentException('invalid_backfill_scope');
+        $fingerprint=$entry->fingerprint($hmacSecret);
+        if ($fingerprint===null) throw new DomainException('missing_stable_bank_identity');
+        $this->assertConnection($connection,$company,$account,$entry->provider,true);
+        if ($this->db->inTransaction()) throw new RuntimeException('nested_transaction_not_supported');
+        $this->db->beginTransaction();
+        try {
+            $query="SELECT id,provider,bank_details,content_fingerprint,state
+                FROM {$this->entriesTable} WHERE connection_id=:connection
+                AND company_id=:company AND account_id=:account AND source_fingerprint=:fingerprint";
+            if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql') $query.=' FOR UPDATE';
+            $stmt=$this->db->prepare($query);
+            $stmt->execute([':connection'=>$connection,':company'=>$company,':account'=>$account,':fingerprint'=>$fingerprint]);
+            $row=$stmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($row)) { $this->db->commit(); return 'missing'; }
+            if ($row['state']==='conflict' ||
+                !hash_equals((string)$row['content_fingerprint'],self::contentFingerprint($entry,$hmacSecret))) {
+                $this->db->commit(); return 'conflict';
+            }
+            if ($entry->details===[]) { $this->db->commit(); return 'no_details'; }
+            $metadata=self::mergeDetails($entry->provider,$row['bank_details'],$entry->details);
+            if ($metadata===$row['bank_details']) { $this->db->commit(); return 'unchanged'; }
+            if ($apply) {
+                $update=$this->db->prepare("UPDATE {$this->entriesTable}
+                    SET bank_details=:metadata,updated_at=:updated
+                    WHERE id=:id AND connection_id=:connection AND company_id=:company
+                    AND account_id=:account AND content_fingerprint=:content");
+                $update->execute([
+                    ':metadata'=>$metadata,
+                    ':updated'=>(new DateTimeImmutable('now',new DateTimeZone('UTC')))->format('Y-m-d H:i:s'),
+                    ':id'=>$row['id'],':connection'=>$connection,':company'=>$company,
+                    ':account'=>$account,':content'=>$row['content_fingerprint'],
+                ]);
+                if ($update->rowCount()!==1) throw new DomainException('backfill_stale_entry');
+            }
+            $this->db->commit();
+            return $apply?'updated':'would_update';
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    /**
      * Add read-only verified evidence to exactly one bank movement. Never
      * mutate financial facts, bookkeeping links or review decisions.
      * @param array<string,string> $details

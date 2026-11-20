@@ -25,6 +25,7 @@ $mapper=new SicoobStatementMapper();
 $raw=['transactionId'=>'synthetic-1','data'=>'2026-11-20','tipo'=>'C','valor'=>'12.34',
     'descricao'=>'PIX recebido','endToEndId'=>'E12345678901234567890123456789012',
     'nomeRemetente'=>'Pessoa Exemplo','instituicaoOrigem'=>'Instituicao Teste',
+    'descInfComplementar'=>'Informacao extra de extrato','dataLote'=>'2026-11-20',
     'access_token'=>'DO-NOT-STORE','cpfCnpjPagador'=>'11111111111',
 ];
 $mapped=$mapper->map(['resultado'=>['transacoes'=>[$raw]]],1,9);
@@ -32,6 +33,9 @@ verifyDetails(count($mapped['entries'])===1,'one mapped source movement');
 $bank=$mapped['entries'][0];
 verifyDetails($bank->details['pix_end_to_end_id']===$raw['endToEndId']
     && $bank->details['sender_name']==='Pessoa Exemplo','Pix identifiers and institution details mapped');
+verifyDetails(($bank->details['complement']??null)==='Informacao extra de extrato' &&
+    ($bank->details['batch_date']??null)==='2026-11-20',
+    'actual Sicoob v4 statement keys are captured');
 verifyDetails(($bank->details['sender_document_masked']??null)==='111.***.***-11',
     'payer document masked before persistence');
 verifyDetails(!str_contains(json_encode($bank->details),'DO-NOT-STORE')
@@ -45,9 +49,9 @@ $without=$mapper->map(['resultado'=>['transacoes'=>[array_diff_key($raw,array_fl
 verifyDetails($stage->ingest(1,1,9,'sicoob',[$without],$secret)['duplicates']===1,'repeated polling stays idempotent');
 verifyDetails($stage->listForReview(1,9,1,'all')[0]['bank_details']===$entry['bank_details'],
     'missing detail fields do not erase imported metadata');
-$updated=$mapper->map(['resultado'=>['transacoes'=>[array_replace($raw,['complemento'=>'Confirmado no extrato'])]]],1,9)['entries'][0];
+$updated=$mapper->map(['resultado'=>['transacoes'=>[array_replace($raw,['identificacao'=>'Identificador complementar'])]]],1,9)['entries'][0];
 verifyDetails($stage->ingest(1,1,9,'sicoob',[$updated],$secret)['duplicates']===1,'repeated import updates detailed metadata safely');
-verifyDetails(json_decode($stage->listForReview(1,9,1,'all')[0]['bank_details'],true)['fields']['complement']==='Confirmado no extrato',
+verifyDetails(json_decode($stage->listForReview(1,9,1,'all')[0]['bank_details'],true)['fields']['identification']==='Identificador complementar',
     'new details available after replay without duplicate movement');
 $stored=$stage->findForReview(1,9,1,(int)$entry['id'])[0];
 $expectedFingerprint=(string)$db->query('SELECT content_fingerprint FROM lcc_banking_connectors_entries WHERE id=1')->fetchColumn();

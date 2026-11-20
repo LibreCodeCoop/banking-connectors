@@ -78,6 +78,7 @@ return [
     'bank_detail_pix_end_to_end_id' => 'Pix end-to-end ID',
     'bank_detail_payer_message' => 'Payer message',
     'bank_detail_pix_txid' => 'Pix transaction ID',
+    'bank_detail_batch_date' => 'Bank batch date',
     'bank_detail_document_number' => 'Document number',
     'bank_detail_complement' => 'Additional information',
     'bank_detail_identification' => 'Identification',

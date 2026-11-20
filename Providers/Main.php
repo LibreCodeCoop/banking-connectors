@@ -25,6 +25,7 @@ use Modules\BankingConnectors\Connectors\Sicoob\SicoobConnector;
 use Modules\BankingConnectors\Application\HealthSnapshot;
 use Modules\BankingConnectors\Console\Commands\PollConnection;
 use Modules\BankingConnectors\Console\Commands\PollAll;
+use Modules\BankingConnectors\Console\Commands\BackfillStatementDetails;
 use Modules\BankingConnectors\Console\Commands\EnrichEntry;
 use Modules\BankingConnectors\Console\Commands\BankHealth;
 use Modules\BankingConnectors\Console\Commands\ProbeSicoobCredentials;
@@ -126,7 +127,7 @@ final class Main extends ServiceProvider
             NativeBankSearch::class . '@applyNativeSearch');
         if ($this->app->runningInConsole()) {
             $this->commands([
-                PollConnection::class, PollAll::class, EnrichEntry::class, PublishConnection::class,
+                PollConnection::class, PollAll::class, BackfillStatementDetails::class, EnrichEntry::class, PublishConnection::class,
                 BankHealth::class, ProbeSicoobCredentials::class,
             ]);
             // Explicit opt-in only; installing the module does not contact
