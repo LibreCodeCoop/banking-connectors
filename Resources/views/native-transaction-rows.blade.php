@@ -100,7 +100,31 @@
 
         <x-table.tbody>
             @foreach($transactions as $item)
-                <x-table.tr href="{{ route('transactions.show', $item->id) }}">
+                @php
+                    $isBankSource=$bankFeedRendering??false;
+                    $bankStatus=null;
+                    $bankActions=[];
+                    $bankEntryUrl=null;
+                    if ($isBankSource) {
+                        $provisional=in_array($item->native_category_code,[
+                            'banking_connectors_pending_income',
+                            'banking_connectors_pending_expense',
+                        ],true);
+                        $bankStatus=$item->state==='conflict'?'conflict'
+                            : ($item->state==='dismissed'?'ignored'
+                            : ($item->publication_outcome==='created'
+                                ? ($provisional?'uncategorized':'posted')
+                                : ($item->native_transaction_id!==null?'matched'
+                                : ($item->category_id===null?'uncategorized':'unlinked'))));
+                        $bankActions=\Modules\BankingConnectors\Http\ViewComposers\NativeTransactionActions::bankActions($item);
+                        $bankEntryUrl=route('transactions.index',[
+                            'company_id'=>company_id(),
+                            'search'=>'bank_movement:imported account_id:'.$item->account_id,
+                            'bank_entry_id'=>$item->id,
+                        ]);
+                    }
+                @endphp
+                <x-table.tr href="{{ $isBankSource ? $bankEntryUrl : route('transactions.show', $item->id) }}">
                     @if (! $hideBulkAction)
                     <x-table.td kind="bulkaction">
                         <x-index.bulkaction.single id="{{ $item->id }}" name="{{ $item->contact->name }}" />
@@ -113,7 +137,7 @@
                         @stack('paid_at_td_start')
                         @if (! $hidePaidAt)
                         <x-slot name="first" class="font-bold truncate" override="class">
-                            <x-date date="{{ $item->paid_at }}" />
+                            <x-date date="{{ $isBankSource ? $item->movement_date : $item->paid_at }}" />
                         </x-slot>
                         @endif
                         @stack('paid_at_td_end')
@@ -121,12 +145,16 @@
                         @stack('number_td_start')
                         @if (! $hideNumber)
                         <x-slot name="second">
+                            @if($isBankSource)
+                                {{ trans('banking-connectors::general.native_row_bank_source') }} #{{ $item->id }}
+                            @else
                             {{ $item->number }}
                             @if(isset($bankingNativeLinked[(int)$item->id]))
                                 <span class="text-xs text-purple font-semibold block mt-0.5"
                                       data-banking-connectors-linked="{{ (int)$item->id }}">
                                     {{ trans('banking-connectors::general.native_row_bank_linked') }}
                                 </span>
+                            @endif
                             @endif
                         </x-slot>
                         @endif
@@ -141,7 +169,9 @@
                         @stack('type_td_start')
                         @if (! $hideType)
                         <x-slot name="first">
-                            {{ $item->type_title }}
+                            {{ $isBankSource
+                                ? trans_choice($item->direction==='credit'?'general.incomes':'general.expenses',1)
+                                : $item->type_title }}
                         </x-slot>
                         @endif
                         @stack('type_td_end')
@@ -149,7 +179,12 @@
                         @stack('category_td_start')
                         @if (! $hideCategory)
                         <x-slot name="second" class="flex items-center">
-                            <x-index.category :model="$item->category" />
+                            @if($isBankSource)
+                                {{ $item->source_category_name ?? $item->native_category_name ??
+                                    trans('banking-connectors::general.native_status_uncategorized') }}
+                            @else
+                                <x-index.category :model="$item->category" />
+                            @endif
                         </x-slot>
                         @endif
                         @stack('category_td_end')
@@ -161,7 +196,42 @@
                     @if (! $hideAccount)
                     <x-table.td class="{{ $classAccount }}">
                         @stack('account_td_inside_start')
-                        {{ $item->account->name }}
+                        @if($isBankSource)
+                            <div class="font-medium truncate">{{ $item->account_name }}</div>
+                            <div class="text-xs text-gray-500 mt-1" data-bank-row-state="{{ $item->id }}">
+                                {{ trans('banking-connectors::general.native_status_'.$bankStatus) }}
+                            </div>
+                            @if($item->bank_description)
+                                <div class="text-xs text-gray-600 mt-1" data-bank-row-narration="{{ $item->id }}">
+                                    {{ \Illuminate\Support\Str::limit((string)$item->bank_description,90) }}
+                                </div>
+                            @endif
+                            @if($item->publication_issue_code)
+                                <div class="text-xs text-amber-700 mt-1">
+                                    @php
+                                        $issueKey='banking-connectors::general.publication_issue.'.$item->publication_issue_code;
+                                    @endphp
+                                    {{ trans($issueKey)===$issueKey
+                                        ? trans('banking-connectors::general.native_review_required')
+                                        : trans($issueKey) }}
+                                </div>
+                            @endif
+                        @else
+                            {{ $item->account->name }}
+                            @if(isset($bankingNativeLinked[(int)$item->id]))
+                                <div class="text-xs text-purple mt-1" data-banking-bank-details="{{ (int)$item->id }}">
+                                    {{ trans('banking-connectors::general.native_row_bank_linked') }}
+                                    @if($bankingNativeLinked[(int)$item->id]->bank_description)
+                                        — {{ \Illuminate\Support\Str::limit(
+                                            $bankingNativeLinked[(int)$item->id]->bank_description,90) }}
+                                    @endif
+                                </div>
+                            @elseif(!empty($bankingNativeConnected[(int)$item->account_id]))
+                                <div class="text-xs text-gray-500 mt-1">
+                                    {{ trans('banking-connectors::general.native_filter_transaction_connected') }}
+                                </div>
+                            @endif
+                        @endif
                         @stack('account_td_inside_end')
                     </x-table.td>
                     @endif
@@ -173,7 +243,15 @@
                         @stack('contact_td_start')
                         @if (! $hideContact)
                         <x-slot name="first">
-                            {{ $item->contact->name }}
+                            @if($isBankSource)
+                                @if($item->native_contact_name)
+                                    {{ $item->native_contact_name }}
+                                @else
+                                    <x-empty-data />
+                                @endif
+                            @else
+                                {{ $item->contact->name }}
+                            @endif
                         </x-slot>
                         @endif
                         @stack('contact_td_end')
@@ -181,7 +259,13 @@
                         @stack('document_td_start')
                         @if (! $hideDocument)
                         <x-slot name="second" class="w-20 font-normal group">
-                            @if ($item->document)
+                            @if($isBankSource)
+                                @if($item->native_document_number)
+                                    {{ $item->native_document_number }}
+                                @else
+                                    <x-empty-data />
+                                @endif
+                            @elseif ($item->document)
                                 <div data-tooltip-target="tooltip-information-{{ $item->document_id }}" data-tooltip-placement="{{ language()->direction() === 'rtl' ? 'right' : 'left' }}" override="class">
                                     <x-link href="{{ route($item->route_name, $item->route_id) }}" class="font-normal truncate border-b border-black border-dashed" override="class">
                                         {{ $item->document->document_number }}
@@ -205,17 +289,32 @@
                     @if (! $hideAmount)
                     <x-table.td class="{{ $classAmount }}" kind="amount">
                         @stack('amount_td_inside_start')
-                        <x-money :amount="$item->amount" :currency="$item->currency_code" />
+                        @if($isBankSource)
+                            <x-money :amount="((float)$item->amount_cents / 100)" :currency="$item->currency" />
+                        @else
+                            <x-money :amount="$item->amount" :currency="$item->currency_code" />
+                        @endif
                         @stack('amount_td_inside_end')
                     </x-table.td>
                     @endif
                     @stack('amount_td_end')
 
                     <x-table.td kind="action">
-                        <x-table.actions :model="$item" />
+                        @if($isBankSource)
+                            <x-table.actions :model="$item" :actions="$bankActions" />
+                        @else
+                            <x-table.actions :model="$item" />
+                        @endif
                     </x-table.td>
                 </x-table.tr>
             @endforeach
+            @if(($bankFeedRendering??false) && count($transactions)===0)
+                <x-table.tr>
+                    <x-table.td colspan="7">
+                        {{ trans('banking-connectors::general.native_no_movements') }}
+                    </x-table.td>
+                </x-table.tr>
+            @endif
         </x-table.tbody>
     </x-table>
 

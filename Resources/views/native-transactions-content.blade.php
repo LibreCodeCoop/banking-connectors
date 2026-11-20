@@ -90,9 +90,16 @@
                 @endif
 
                 <x-tabs.nav-link id="recurring-templates" name="{{ trans_choice('general.recurring_templates', 2) }}" href="{{ route('recurring-transactions.index') }}" />
-                <x-tabs.nav-link id="bank-feed"
-                    name="{{ trans('banking-connectors::general.native_bank_tab') }}"
-                    href="{{ route('transactions.index', ['company_id'=>company_id(), 'search'=>'bank_movement:needs_action']) }}" />
+                @if($bankFeedActive)
+                    <x-tabs.nav-pin id="bank-feed"
+                        name="{{ trans('banking-connectors::general.native_bank_tab') }}"
+                        type="transactions" tab="bank-feed" />
+                @else
+                    <x-tabs.nav-pin id="bank-feed"
+                        name="{{ trans('banking-connectors::general.native_bank_tab') }}"
+                        href="{{ route('transactions.index', ['company_id'=>company_id(), 'search'=>'bank_movement:needs_action']) }}"
+                        type="transactions" tab="bank-feed" />
+                @endif
             </x-slot>
 
             <x-slot name="content">
@@ -133,7 +140,9 @@
                         route="transactions.index"
                     />
                     <x-tabs.tab id="bank-feed">
-                        @include('banking-connectors::partials.native-feed-table')
+                        <x-transactions.index.transaction
+                            :type="$type" :transactions="$bankFeedRows"
+                            hide-bulk-action />
                     </x-tabs.tab>
                 @endif
             </x-slot>
