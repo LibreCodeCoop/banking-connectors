@@ -22,7 +22,7 @@ jobs:
                 -type f -name "*.php" -exec php -l {} \; > /tmp/php-lint.txt
               for test in contract provider sicoob-http-client sicoob-retry-policy \
                   bank-connector-plugin health-snapshot native-mapper staging-sqlite \
-                  read-only-sync-sqlite bank-details-sqlite pix-enrichment single-entry-review-sqlite review-decision-sqlite category-workflow-sqlite category-learning-sqlite connection-control-sqlite native-posting-decision; do
+                  read-only-sync-sqlite bank-details-sqlite statement-detail-backfill-sqlite pix-enrichment single-entry-review-sqlite review-decision-sqlite category-workflow-sqlite category-learning-sqlite connection-control-sqlite native-posting-decision; do
                 php "tests/$test.php" > /tmp/case.out ||
                   { echo "FAIL $test"; exit 1; }
                 echo "PASS $test"

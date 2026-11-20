@@ -78,6 +78,7 @@ return [
     'bank_detail_pix_end_to_end_id' => 'Identificador fim a fim do Pix',
     'bank_detail_payer_message' => 'Mensagem do pagador',
     'bank_detail_pix_txid' => 'Identificador da cobrança Pix',
+    'bank_detail_batch_date' => 'Data do lote',
     'bank_detail_document_number' => 'Número do documento',
     'bank_detail_complement' => 'Informações complementares',
     'bank_detail_identification' => 'Identificação',

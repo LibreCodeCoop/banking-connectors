@@ -12,6 +12,7 @@ Use PHP 8.2+ and PDO SQLite. All values are synthetic:
 ```sh
 php tests/contract.php
 php tests/bank-details-sqlite.php
+php tests/statement-detail-backfill-sqlite.php
 php tests/pix-enrichment.php
 php tests/single-entry-review-sqlite.php
 php tests/provider.php

@@ -44,7 +44,7 @@ never persists raw provider payloads. The optional contract
 screen how to group and label details. Labels and group labels are complete
 translation keys, so external provider modules may supply their own strings.
 
-The built-in Sicoob mapper extracts an allowlist of optional extrato fields
+The built-in Sicoob mapper extracts an allowlist of optional extrato fields (including observed v4 `descInfComplementar` and `dataLote` keys)
 using `SicoobMovementDetails`. The API may not include Pix identifiers or payer
 information for every statement line. Missing fields remain absent; the UI
 never guesses counterparties from free-form descriptions. API and paginated
@@ -144,3 +144,22 @@ idempotent replay and pausing.
 Each real institution requires its own independent read-only contract test:
 OAuth/certificates, error and retry codes, stable identities, currencies,
 unsettled movements, malformed data, TLS and provider API quotas.
+
+## Statement-only historical details backfill
+
+After upgrading the provider mapping, an operator can fetch historical statement
+fields without invoking the normal poller or native publisher. The default is
+read-only dry-run; `--apply` changes **only** versioned bank metadata on an
+existing staged entry. The source HMAC fingerprint, company, account, and
+financial content HMAC must all match before the metadata is added. No
+transaction, invoice, review state, reconciliation, category or cursor is
+changed. No missing entries are created. Each run is bounded to 35 days and
+500 returned movements.
+
+    php artisan banking-connectors:backfill-details 1 --start=2026-11-03 --through=2026-11-19
+    php artisan banking-connectors:backfill-details 1 --start=2026-11-03 --through=2026-11-19 --apply
+
+This uses the worker's normal company/account-scoped credentials, never the
+public web process. It does not fetch additional Pix API data without a
+validated end-to-end identifier. Dry-run first and inspect counts, including
+`conflict` and `missing`, before applying a historical backfill.
