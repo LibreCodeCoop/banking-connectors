@@ -33,8 +33,10 @@ independent of Akaunting's proprietary Bank Feeds app.
   All transactions and Recurring templates tabs, summaries, pagination and
   standard search. Its **existing search dropdown** now includes
   **Bank integration status** for native transactions. An additional native
-  **Bank movements** tab, starting at Needs action, uses the same search
-  component, table, filters and pagination for statement evidence that is
+  **Bank movements** tab, starting at Needs action, reuses the **exact native
+  transaction-table component and column structure**, the existing search,
+  sorting, per-row hover actions, pagination and pin-to-default capability
+  for statement evidence that is
   not necessarily a posted financial transaction.
 - The existing native transaction row hover menu gains bank statement/review
   links on connected accounts; verified linked rows show a bank-link marker.

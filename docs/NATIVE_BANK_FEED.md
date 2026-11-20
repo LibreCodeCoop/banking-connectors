@@ -17,9 +17,15 @@ bank account without a verified bank link may be filtered without being
 mistaken for an unimported financial record.
 
 The same native page has an additional **Bank movements** tab, which starts
-with **Needs action** selected. It uses Akaunting's built-in search control,
-table, pagination and hover-action menu, with the **Bank statement status**
-filter and the native **Account** filter. Available statuses:
+with **Needs action** selected. It renders through the **identical Akaunting
+transaction-table component**, with the same Date/Number, Type/Category,
+Account, Contact/Document and Amount columns, the normal sort headers,
+pagination, hover-action menu and the built-in **pin as default** control.
+**Bank statement status** appears alongside native filters for Type,
+Account, Date, Currency, Category and linked Contact, rather than replacing
+them. Native filter combinations execute against the imported-source records
+with company/account-bound predicates; unlinked sources have no contact or
+financial document. Available statement statuses:
 
 - **Needs action**: pending/unmatched events, source conflicts and
   already published entries still using an *A classificar* category.
@@ -37,13 +43,18 @@ associated with an existing native entry.** They therefore appear in the
 bank-movements tab, not as fabricated native income/expense rows.
 
 Every linked native financial transaction displays a bank-link indicator
-in its normal row. The *existing* Akaunting hover-actions menu adds
+and the available bank narration under the **Account** name in its normal
+row. The *existing* Akaunting hover-actions menu adds
 **View bank statement movement** for linked records and **Review bank
 movements** for transactions on connected bank accounts. A direct source
 link opens the exact, company/account-scoped bank movement; there is no
-second actions menu. Bank source rows have their own native-style actions
-for reviewing, opening a verified native transaction, or manually opening
-Akaunting's transfer flow.
+second actions menu. Bank source rows use the **same native action menu** for inspecting and
+reviewing the evidence, opening bank settings and, when a verified native
+transaction actually exists, opening, printing or downloading its PDF.
+Unposted bank evidence cannot be printed or deleted as if it were a real
+financial transaction. Source status, bank narration and any fixed issue
+reason appear beneath the account name to support classification and review.
+A possible internal transfer links to Akaunting's manual transfer flow.
 
 For an eligible linked or pending movement, category changes remain
 permission-gated, idempotent, auditable and scoped to the selected bank

@@ -92,8 +92,21 @@ does not alter Akaunting core or claim to settle invoices automatically.
   references and preserves native search and totals.
   Native transaction row actions are enriched in the existing `x-table.actions`
   hover menu, with one batched company-scoped query for the current page;
-  linked rows show a bank-evidence marker. Stage rows use Akaunting's native
-  table/action/pagination components, but do not become financial ledger rows
+  linked rows show a bank-evidence marker and a bounded source description
+  under their account name. The Bank movements tab renders through the
+  **same `x-transactions.index.transaction` component and same table Blade**
+  as the real financial list; a source-aware view composer restores the
+  scoped bank rows after Akaunting's `setParentData()` inherited the parent
+  native ledger collection. Without that step, the bank tab would
+  misleadingly render native records as if they were bank source rows.
+  The bank row presenter maps dates, credit/debit, category, account,
+  contact/document where actually linked, and amount into the native columns.
+  Bank-source review actions use the original `x-table.actions` control and
+  only expose print/PDF where a real native transaction is present.
+  The existing `x-tabs.nav-pin` handles the default bank tab; its
+  `bank_movement:needs_action` search criterion is visible in the native
+  search field, alongside supported financial filters.
+  Stage rows never become financial ledger rows
   until safely published or linked. The two overridden view components are
   copied from the project's current native templates because Akaunting does
   not expose a stack insertion point for an extra tab or row marker; upstream
