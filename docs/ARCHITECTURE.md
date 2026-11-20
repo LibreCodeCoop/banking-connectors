@@ -49,6 +49,22 @@ does not alter Akaunting core or claim to settle invoices automatically.
   state, with idempotency keys and append-only application-level audit events.
   A unique constraint prevents two bank movements in the same company/account
   from claiming the same native transaction ID.
+- **Learning-assisted review**: the private, per-account Naive Bayes text
+  baseline trains solely on the latest manual category audit per staged entry,
+  using tokenized descriptions and debit/credit direction. It is read-only
+  and automatically reflects later human corrections. Model strengths are
+  not calibrated probabilities; an insufficient, one-class, ambiguous or
+  unrecognized sample yields no prediction. The default is **abstention**,
+  never unattended native accounting writes.
+  Exact whole-name candidates from the same company's active customer/vendor
+  registry are presented as unverified counterparties only (without CPF/CNPJ
+  lookup); the native read-sales-customers/read-purchases-vendors permission
+  must be present to query the corresponding contact type. A customer credit
+  does not by itself prove an invoice is paid.
+  An external Rubix ML dependency was deliberately not introduced at this
+  stage: the historical labeled data are not yet sufficient to benchmark
+  Rubix against the auditable local baseline or justify a larger dependency
+  graph. Benchmark replacement models with holdout data before promotion.
 - **Classifications**: a bounded, validated `bank_description` is extracted
   from the Sicoob description field. Per-company/account category rules use
   case/accent-normalized `contains`, debit/credit direction, enabled flag

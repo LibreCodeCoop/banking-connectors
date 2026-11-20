@@ -4,6 +4,17 @@
 declare(strict_types=1);
 
 return [
+    'learning_heading' => 'Learning from confirmed category decisions',
+    'learning_samples' => ':total manually classified bank movements for this account (with valid description).',
+    'learning_active' => 'The category model updates for each review and suggests only with sufficient examples and strong text evidence.',
+    'learning_not_ready' => 'Learning is in cold start. Safe suggestions require at least 12 examples, two distinct categories for the same direction and four examples per category.',
+    'learning_privacy' => 'All examples remain inside Akaunting. No statements are sent to external AI; suggestions never post financial entries.',
+    'learning_suggested_category' => 'Category suggested from your history',
+    'learning_evidence' => 'Based on :count category reviews and :terms matching terms. This is a suggestion, not a calibrated probability: select the category to confirm.',
+    'possible_counterparty' => 'Possible matching contact',
+    'counterparty_customer' => 'customer',
+    'counterparty_vendor' => 'vendor',
+    'counterparty_warning' => 'Full-name text match only, not tax-ID validation or proof that an invoice was settled.',
     'navigation_label' => 'Bank integration sections',
     'tab_review' => 'Movements and review',
     'tab_settings' => 'Configure integration',

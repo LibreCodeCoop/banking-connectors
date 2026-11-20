@@ -38,6 +38,16 @@ independent of Akaunting's proprietary Bank Feeds app.
 - Manual category overrides win over automated suggestions, even after bank
   replay. Users can filter pending/linked/ignored entries, inspect more
   candidate transactions in bounded date windows, and reopen incorrect links.
+- **Learning-assisted categorization** runs locally in PHP: a bounded
+  multinomial Naive Bayes baseline is rebuilt from the latest explicitly
+  reviewed category per movement, isolated by company/account and bank direction.
+  It abstains until at least 12 examples and two categories with at least four
+  examples each; unknown words and ambiguous scores also abstain. Predictions
+  are proposals only, not calibrated probabilities or automatic financial writes.
+- The preview can suggest a **possible** customer/vendor only when a unique,
+  complete name from an active company contact appears literally in the bank
+  description. A match in free text is not verified payer identity or an
+  invoice settlement. The app never sends bank statements to external AI.
 - Explicit, idempotent match/dismiss/reopen actions modify only Banking
   Connectors metadata, not invoice settlement or transaction creation.
 - A **separate, expressly confirmed option** can change only `category_id`

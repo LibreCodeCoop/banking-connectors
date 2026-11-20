@@ -120,6 +120,15 @@ required). This is an integration point for monitoring, **not** evidence that
 Zabbix alert delivery has already been configured.
 
 The combined local regression is `bash tests/run-local-verification.sh`.
+`tests/category-learning-sqlite.php` verifies supervised feedback, conservative
+abstention, unknown words, opposite-direction behavior, unique counterparty
+matches, ambiguous names, company/account isolation and correction of old
+training labels. `tests/localhost-learning.py` seeds and removes explicitly
+synthetic category audit entries in a separate private Akaunting instance and
+confirms that a real authenticated Web page shows an explained category
+suggestion without native financial writes. The training rows and fake
+categories are cleaned even if the UI assertion fails.
+
 `tests/category-workflow-sqlite.php` verifies category suggestions, disabled
 rules, manual overrides, idempotency, stale category checks, tenant isolation,
 and the deliberate native category-only write. `tests/localhost-classification.py`
