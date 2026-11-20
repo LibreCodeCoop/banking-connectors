@@ -34,6 +34,20 @@ final class SicoobCredentialResolver
             is_string($account->credential_reference ?? null)
                 ? $account->credential_reference : null
         );
+        // Optional separate read-only Pix API scope. Not enabled merely by
+        // installing the module or by having current-account credentials.
+        $pixBase=getenv('BANKING_CONNECTORS_SICOOB_PIX_API_URL');
+        if (is_string($pixBase) && $pixBase!=='') {
+            $parts=parse_url($pixBase);
+            if (!is_array($parts) || ($parts['scheme']??null)!=='https' ||
+                strtolower((string)($parts['host']??''))!=='api.sicoob.com.br' ||
+                rtrim((string)($parts['path']??''),'/')!=='/pix/api/v2' ||
+                isset($parts['port']) || isset($parts['user']) ||
+                isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+                throw new DomainException('pix_api_endpoint_not_trusted');
+            }
+            $config['PIX_API_BASE_URL']=$pixBase;
+        }
         $rawAccount = trim((string) ($account->number ?? ''));
         $digits = preg_replace('/[^0-9]/', '', $rawAccount);
         if (!preg_match('/^[0-9.\/ -]{1,40}$/D', $rawAccount) ||

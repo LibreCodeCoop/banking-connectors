@@ -421,6 +421,41 @@
                                             {{ number_format($row['amount_cents']/100,2,',','.') }}
                                         </div>
                                     </div>
+                                    @if($singleEntryId !== null)
+                                        <section class="mt-4 rounded-lg border p-4" aria-labelledby="bank-details-heading">
+                                            <h4 id="bank-details-heading" class="font-semibold text-sm">{{ trans('banking-connectors::general.bank_details_heading') }}</h4>
+                                            @if($row['bank_details'] !== [])
+                                                @php $groupedDetails=collect($row['bank_details'])->groupBy('group'); @endphp
+                                                @foreach($groupedDetails as $groupLabel => $groupDetails)
+                                                    <h5 class="text-sm font-medium mt-4">{{ trans($groupLabel) }}</h5>
+                                                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 text-sm">
+                                                        @foreach($groupDetails as $detail)
+                                                            <div class="min-w-0">
+                                                                <dt class="text-gray-500">{{ trans($detail['label']) }}</dt>
+                                                                <dd class="font-medium break-all">{{ $detail['value'] }}</dd>
+                                                            </div>
+                                                        @endforeach
+                                                    </dl>
+                                                @endforeach
+                                            @else
+                                                <p class="mt-2 text-sm text-gray-500">{{ trans('banking-connectors::general.bank_details_unavailable') }}</p>
+                                            @endif
+                                            @if($canReview && $row['provider']==='sicoob' && $row['direction']==='credit' &&
+                                                isset($row['bank_details']['pix_end_to_end_id']) &&
+                                                preg_match('/^E[0-9]{8}[A-Za-z0-9]{23}$/D',$row['bank_details']['pix_end_to_end_id']['value']) &&
+                                                getenv('BANKING_CONNECTORS_SICOOB_PIX_API_URL') && config('queue.default')!=='sync')
+                                                <form method="POST" class="mt-4" action="{{ route('banking-connectors.transactions.entry.enrich',[
+                                                    'company_id'=>company_id(),'accountId'=>$selected->account_id,'entryId'=>$row['id']
+                                                ]) }}">
+                                                    @csrf
+                                                    <button type="submit" class="border border-purple text-purple rounded-lg px-4 py-2 text-sm">
+                                                        {{ trans('banking-connectors::general.bank_enrichment_action') }}
+                                                    </button>
+                                                    <p class="mt-1 text-xs text-gray-500">{{ trans('banking-connectors::general.bank_enrichment_note') }}</p>
+                                                </form>
+                                            @endif
+                                        </section>
+                                    @endif
                                     <div class="border-t mt-4 pt-4 grid grid-cols-1 lg:grid-cols-2 gap-5">
                                         <section>
                                             <h4 class="font-semibold text-sm">{{ trans('banking-connectors::general.category') }}</h4>

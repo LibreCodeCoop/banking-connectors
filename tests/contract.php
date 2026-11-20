@@ -4,6 +4,7 @@
 declare(strict_types=1);
 require dirname(__DIR__) . '/Domain/BankEntry.php';
 require dirname(__DIR__) . '/Domain/MatchingEngine.php';
+require dirname(__DIR__) . '/Connectors/Sicoob/SicoobMovementDetails.php';
 require dirname(__DIR__) . '/Connectors/Sicoob/SicoobStatementMapper.php';
 use Modules\BankingConnectors\Domain\BankEntry;
 use Modules\BankingConnectors\Domain\MatchingEngine;

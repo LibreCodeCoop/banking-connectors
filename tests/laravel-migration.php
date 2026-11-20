@@ -73,6 +73,8 @@ $nativeIssueMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11
 $nativeIssueMigration->up();
 $activationMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_20_120000_fence_native_posting_activation.php';
 $activationMigration->up();
+$detailsMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_20_170000_add_bank_entry_details.php';
+$detailsMigration->up();
 // Akaunting owns this native table; create only its minimal shape in the
 // disposable in-memory migration fixture, never in the module migration.
 $pdo->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY,company_id INT,
@@ -91,6 +93,11 @@ if (!Schema::hasColumn('lcc_banking_connectors_connections', 'poll_requested_at'
 if (!Schema::hasColumn('lcc_banking_connectors_connections','native_post_after_entry_id') ||
     !Schema::hasColumn('lcc_banking_connectors_connections','native_post_activated_at')) {
     throw new RuntimeException('Native posting activation fences missing');
+}
+if (!Schema::hasColumn('lcc_banking_connectors_entries','bank_details') ||
+    !Schema::hasColumn('lcc_banking_connectors_entries','bank_details_enrichment_state') ||
+    !Schema::hasColumn('lcc_banking_connectors_entries','bank_details_enrichment_checked_at')) {
+    throw new RuntimeException('Bank detail migration incomplete');
 }
 if (!Schema::hasColumn('lcc_banking_connectors_entries', 'publication_issue_code') ||
     !Schema::hasColumn('lcc_banking_connectors_entries', 'publication_failures')) {
@@ -130,6 +137,7 @@ if ($first['inserted'] !== 1 || $second['duplicates'] !== 1 ||
 }
 echo 'PASS PDO storage works against the actual Laravel migration schema' . PHP_EOL;
 
+$detailsMigration->down();
 $activationMigration->down();
 $nativeIssueMigration->down();
 $nativePublishMigration->down();

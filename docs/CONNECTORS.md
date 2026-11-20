@@ -36,6 +36,44 @@ ambiguous movement identities, mismatched tenant/account/provider,
 unrecognized providers and financial writes. It owns all retry,
 idempotence and backoff behavior.
 
+## Provider-specific movement details
+
+The core persists versioned, bounded metadata on the bank statement entry; it
+never persists raw provider payloads. The optional contract
+`BankMovementDetailsProvider::detailDefinitions()` tells the generic review
+screen how to group and label details. Labels and group labels are complete
+translation keys, so external provider modules may supply their own strings.
+
+The built-in Sicoob mapper extracts an allowlist of optional extrato fields
+using `SicoobMovementDetails`. The API may not include Pix identifiers or payer
+information for every statement line. Missing fields remain absent; the UI
+never guesses counterparties from free-form descriptions. API and paginated
+review listings do not expose these additional details; the detail view is
+company/account/entry scoped.
+
+`BankMovementEnricher` is a separate optional read-only capability. Its Sicoob
+implementation can consult a **received** Pix by exact end-to-end ID after the
+bank has separately authorized the `pix.read` OAuth scope. It checks the
+requested identity, credited amount and occurrence date before attaching
+allowed metadata to the existing entry. No new native Akaunting transaction
+is created or modified. Not every credit or Pix has an E2E ID in the statement.
+
+This capability is **off by default**. To enable it, a trusted operator must
+configure `BANKING_CONNECTORS_SICOOB_PIX_API_URL` to the official
+`https://api.sicoob.com.br/pix/api/v2` endpoint and verify that the bank
+application has `pix.read` permission. Do not assume current-account
+`cco_consulta` credentials are sufficient; the Sicoob OAuth tokens are scoped
+and cached independently. No Pix requests occur during scheduled statement
+polling or module installation. The review action queues one explicitly
+requested lookup (subject to native ACL and throttling). Manual CLI equivalent:
+
+    php artisan banking-connectors:enrich-entry <entry-id> \
+      --company=<company-id> --account=<account-id>
+
+A response that lacks the same E2E ID, amount or date is rejected, without
+creating or settling accounting entries. Queue failures produce a safe status;
+the UI does not display raw bank responses or secret values.
+
 ## External module installation
 
 Example source with one trusted registration:

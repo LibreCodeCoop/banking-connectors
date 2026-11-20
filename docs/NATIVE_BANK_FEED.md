@@ -136,3 +136,33 @@ record or a bank source identity simply to make a new import succeed.
 The complete source and native financial transaction restoration should
 be rehearsed in a *separate, synthetic* environment. Do not replace
 production data with a test fixture.
+
+## Detailed bank movement evidence
+
+The dedicated single-entry review page can display a limited set of additional
+fields included in the current-account statement API response (such as a Pix
+end-to-end identifier, origin institution, remitter name and document number).
+Fields are optional and **must not** be inferred from a Pix description. The
+read-only statement endpoint does not guarantee the richer fields of the
+separate Pix API; no raw API payload or credential data is retained.
+
+Only the explicitly mapped, bounded fields are stored on the staged entry.
+The versioned metadata is scoped to the same company, bank account and
+connection as its source movement; the paginated review/API preview
+intentionally does not return it. The built-in Sicoob provider owns the
+detail labels and groups through the optional `BankMovementDetailsProvider`
+contract. No native accounting transaction is rewritten.
+
+Entries imported before this schema change do not contain details. An
+operator-authorized statement replay of the original period can enrich a
+matching staged item idempotently without duplicating its financial entry.
+Do not enable unattended polling or backfill as part of deploying this UI.
+
+If the account has been separately granted Sicoob `pix.read`, a reviewer can
+explicitly request additional details using the dedicated detail screen's
+"Consultar detalhes Pix" action. This is a queued single-entry operation and
+requires a valid end-to-end ID already provided by the statement, so it cannot
+infer identities from descriptions or silently batch-scan unrelated Pix.
+The lookup verifies the E2E ID, amount and date before enriching metadata;
+accounting amounts and reconciliation links are not changed. Configuration
+and permissions are documented in `docs/CONNECTORS.md`.
