@@ -38,6 +38,11 @@ $db->exec("INSERT INTO contacts VALUES
     (12,2,'Empresa Não Visível','vendor',19,1,NULL),
     (13,1,'Companhia Desativada','vendor',12,0,NULL)");
 
+$db->exec("CREATE TABLE transactions (
+    id INTEGER PRIMARY KEY, company_id INTEGER NOT NULL,
+    account_id INTEGER NOT NULL, category_id INTEGER NULL,
+    type VARCHAR(24) NOT NULL DEFAULT 'expense', deleted_at DATETIME NULL
+)");
 $advisor=new CategoryLearningAdvisor($db);
 $row=['id'=>987,'description'=>'PIX pagamento rodoviaria transporte frota',
     'direction'=>'debit','stage_state'=>'pending','category_source'=>null];
@@ -186,4 +191,42 @@ $crossCompany=$advisor->advise(2,10,[[
 ]],['customer']);
 verifyLearning($crossCompany['contacts']===[],
     'provider metadata is never read across companies');
+// A user-reviewed link to a real categorized native transaction is also
+// trustworthy training evidence. A mere value/date suggestion is not.
+$db->exec("INSERT INTO lcc_banking_connectors_entries
+  (id,connection_id,company_id,account_id,provider,source_fingerprint,
+   content_fingerprint,movement_date,direction,amount_cents,currency,
+   bank_description,category_source,category_id,state,linked_transaction_id,
+   conflict_count,first_seen_at,last_seen_at)
+  VALUES (999,1,1,9,'sicoob','verified-link-source','verified-link-content',
+   '2026-11-19','debit',2500,'BRL',
+   'PIX pagamento transporte rodoviario frota','linked_native',12,'reviewed',150,
+   0,'2026-11-19 11:00:00','2026-11-19 11:00:00')");
+$db->exec("INSERT INTO transactions(id,company_id,account_id,category_id)
+ VALUES (150,1,9,12),(151,2,9,19)");
+$db->exec("INSERT INTO lcc_banking_connectors_review_events
+ (entry_id,connection_id,company_id,account_id,actor_id,operation,
+  native_transaction_id,request_key,source_fingerprint,content_fingerprint,occurred_at)
+ VALUES (999,1,1,9,7,'accept',150,'verified-training-review-event',
+ 'verified-link-source','verified-link-content','2026-11-19 11:00:00')");
+$verified=$advisor->advise(1,9,[$row]);
+verifyLearning($verified['total_labels']===17,
+ 'explicitly accepted native link adds one verified training example');
+$db->exec('UPDATE transactions SET category_id=14 WHERE id=150');
+$stale=$advisor->advise(1,9,[$row]);
+verifyLearning($stale['total_labels']===16,
+ 'native category changed after link makes the inherited label stale');
+$db->exec('UPDATE transactions SET category_id=12 WHERE id=150');
+$db->exec("UPDATE lcc_banking_connectors_entries SET state='pending' WHERE id=999");
+$reopened=$advisor->advise(1,9,[$row]);
+verifyLearning($reopened['total_labels']===16,
+ 'reopened link never remains in the training dataset');
+$db->exec("UPDATE lcc_banking_connectors_entries SET state='reviewed' WHERE id=999");
+$db->exec("DELETE FROM lcc_banking_connectors_review_events WHERE entry_id=999");
+$unproven=$advisor->advise(1,9,[$row]);
+verifyLearning($unproven['total_labels']===16,
+ 'category_source flag alone is not proof of human-confirmed link');
+$anotherTenant=$advisor->advise(2,10,[$row]);
+verifyLearning($anotherTenant['total_labels']===0,
+ 'native label provenance cannot leak across company or account');
 echo "Scoped learning and counterparty suggestions are read-only and passed.\n";
