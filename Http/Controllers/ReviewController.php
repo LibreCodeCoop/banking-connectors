@@ -17,6 +17,7 @@ use Illuminate\View\View;
 use Modules\BankingConnectors\Application\ReviewPreview;
 use Modules\BankingConnectors\Application\BankConnectorRegistry;
 use Modules\BankingConnectors\Application\CategoryWorkflow;
+use Modules\BankingConnectors\Application\CategoryLearningAdvisor;
 
 /**
  * Native admin-only read surface. Do not trust company/account/connection
@@ -29,6 +30,7 @@ final class ReviewController extends Controller
         private readonly ReviewDecisionService $decisions,
         private readonly BankConnectorRegistry $registry,
         private readonly CategoryWorkflow $classification,
+        private readonly CategoryLearningAdvisor $learning,
     ) {}
 
     public function index(Request $request): View
@@ -138,6 +140,7 @@ final class ReviewController extends Controller
             'suggested' => 0, 'needs_review' => 0, 'unmatched' => 0,
         ]];
         $stateCounts = ['pending'=>0,'reviewed'=>0,'dismissed'=>0];
+        $learningStats = ['total_labels'=>0,'ready'=>false];
         if ($selected !== null) {
             $account = (int)$selected->account_id;
             $report = $this->preview->forConnection(
@@ -183,6 +186,19 @@ final class ReviewController extends Controller
                 unset($candidate);
             }
             unset($item);
+            // The model is read-only and learns only from human audit events.
+            $contactRights = [];
+            if (auth()->user()->can('read-sales-customers')) $contactRights[]='customer';
+            if (auth()->user()->can('read-purchases-vendors')) $contactRights[]='vendor';
+            $learned = $this->learning->advise(
+                $companyId, $account, $report['items'], $contactRights
+            );
+            $learningStats = ['total_labels'=>$learned['total_labels'],'ready'=>$learned['ready']];
+            foreach ($report['items'] as &$item) {
+                $item['learning_suggestion'] = $learned['suggestions'][$item['id']] ?? null;
+                $item['possible_counterparty'] = $learned['contacts'][$item['id']] ?? null;
+            }
+            unset($item);
         }
 
         return view('banking-connectors::review', [
@@ -194,6 +210,7 @@ final class ReviewController extends Controller
             'categories' => $categories,
             'categoryNames' => $categoryNames,
             'stateCounts' => $stateCounts,
+            'learningStats' => $learningStats,
             'canReview' => auth()->user()->can('update-banking-transactions'),
             'canManage' => $canManage,
             'canRequest' => $canManage && auth()->user()->can('update-banking-transactions'),

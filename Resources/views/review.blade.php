@@ -188,6 +188,16 @@
                             {{ trans('banking-connectors::general.rules_heading') }}
                         </h2>
                         <p class="text-sm text-gray-600 mt-2">{{ trans('banking-connectors::general.rules_intro') }}</p>
+                        @if ($selected !== null)
+                            <section class="mt-5 rounded-lg border bg-gray-50 p-4 text-sm" id="banking-connectors-learning-status" aria-label="{{ trans('banking-connectors::general.learning_heading') }}">
+                                <h3 class="font-semibold">{{ trans('banking-connectors::general.learning_heading') }}</h3>
+                                <p class="mt-1">{{ trans('banking-connectors::general.learning_samples', ['total'=>$learningStats['total_labels']]) }}</p>
+                                <p class="mt-1 text-gray-600">{{ $learningStats['ready']
+                                  ? trans('banking-connectors::general.learning_active')
+                                  : trans('banking-connectors::general.learning_not_ready') }}</p>
+                                <p class="mt-2 text-xs text-gray-600">{{ trans('banking-connectors::general.learning_privacy') }}</p>
+                            </section>
+                        @endif
                         @if ($selected !== null && $canManage)
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
                                 @foreach (['debit','credit'] as $direction)
@@ -385,7 +395,35 @@
                                                     · {{ trans('banking-connectors::general.category_source_'.$row['category_source']) }}
                                                 @endif
                                             </p>
+                                            @if ($row['possible_counterparty'] !== null)
+                                                <p class="mt-3 text-sm text-blue-800" id="bank-entry-{{ $row['id'] }}-contact-hint">
+                                                    {{ trans('banking-connectors::general.possible_counterparty') }}:
+                                                    {{ $row['possible_counterparty']['name'] }}
+                                                    ({{ trans('banking-connectors::general.counterparty_' . $row['possible_counterparty']['type']) }})
+                                                </p>
+                                                <p class="mt-1 text-xs text-gray-600">
+                                                    {{ trans('banking-connectors::general.counterparty_warning') }}
+                                                </p>
+                                            @endif
+                                            @if ($row['learning_suggestion'] !== null)
+                                                <p class="mt-3 text-sm font-medium text-purple" id="bank-entry-{{ $row['id'] }}-learning-hint">
+                                                    {{ trans('banking-connectors::general.learning_suggested_category') }}:
+                                                    {{ $categoryNames[$row['learning_suggestion']['category_id']] ?? trans('banking-connectors::general.category_missing') }}
+                                                </p>
+                                                <p class="mt-1 text-xs text-gray-600">
+                                                    {{ trans('banking-connectors::general.learning_evidence', [
+                                                        'count'=>$row['learning_suggestion']['class_examples'],
+                                                        'terms'=>$row['learning_suggestion']['shared_terms']
+                                                    ]) }}
+                                                </p>
+                                            @endif
                                             @if ($canReview && $row['stage_state'] !== 'conflict' && $row['stage_state'] !== 'dismissed')
+                                                @php
+                                                    // Suggestion is preselected, never applied without a
+                                                    // deliberate, authorized save by the reviewer.
+                                                    $formCategory = $row['category_id']
+                                                        ?? ($row['learning_suggestion']['category_id'] ?? null);
+                                                @endphp
                                                 <form method="POST"
                                                       action="{{ route('banking-connectors.account.category.update',['company_id'=>company_id(),'accountId'=>$selected->account_id,'entryId'=>$row['id']]) }}"
                                                       class="mt-3 space-y-2">
@@ -398,7 +436,7 @@
                                                         <select name="category_id" class="border rounded-lg px-3 py-2 w-full">
                                                             <option value="">{{ trans('banking-connectors::general.category_unset') }}</option>
                                                             @foreach ($rowCategories as $cat)
-                                                                <option value="{{ $cat->id }}" {{ $row['category_id'] === (int)$cat->id ? 'selected' : '' }}>
+                                                                <option value="{{ $cat->id }}" {{ $formCategory === (int)$cat->id ? 'selected' : '' }}>
                                                                     {{ $cat->name }}
                                                                 </option>
                                                             @endforeach

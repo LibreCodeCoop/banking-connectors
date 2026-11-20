@@ -103,6 +103,8 @@ check("-----BEGIN PRIVATE KEY" not in page and
 
 code,page=get(admin,"/2/banking/accounts/3/integration?tab=rules")
 p=Token();p.feed(page)
+check(code==200 and "Aprendizado com classificações confirmadas" in page,
+      "category automation presents the cold-start training disclosure")
 check(code==200 and "Regras de categorização" in page and p.csrf and
       'name="description_contains"' in page,
       "category rules tab displays usable creation form")

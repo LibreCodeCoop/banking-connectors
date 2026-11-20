@@ -4,6 +4,17 @@
 declare(strict_types=1);
 
 return [
+    'learning_heading' => 'Aprendizado com classificações confirmadas',
+    'learning_samples' => ':total movimentações classificadas manualmente nesta conta (com descrição válida).',
+    'learning_active' => 'O modelo de categorias é avaliado a cada revisão. Ele só sugere quando existem exemplos suficientes e evidência textual forte.',
+    'learning_not_ready' => 'Aprendizado em fase inicial. Para sugerir com segurança, são necessários pelo menos 12 exemplos, duas categorias distintas no mesmo sentido e quatro exemplos por categoria.',
+    'learning_privacy' => 'As classificações permanecem neste Akaunting. Nenhum extrato é enviado para serviços externos de IA; sugestões não são lançamentos contábeis.',
+    'learning_suggested_category' => 'Categoria sugerida pelo histórico',
+    'learning_evidence' => 'Baseado em :count revisões da categoria e :terms termos comuns. É uma sugestão, não uma probabilidade calibrada: selecione a categoria para confirmar.',
+    'possible_counterparty' => 'Possível contato identificado no cadastro',
+    'counterparty_customer' => 'cliente',
+    'counterparty_vendor' => 'fornecedor',
+    'counterparty_warning' => 'Correspondência literal do nome no extrato, não validação de CPF/CNPJ nem prova de liquidação de fatura.',
     'navigation_label' => 'Seções da integração bancária',
     'tab_review' => 'Movimentações e conciliação',
     'tab_settings' => 'Configurar integração',

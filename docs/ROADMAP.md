@@ -46,6 +46,15 @@ A narrowly scoped, user-confirmed category-only update on an already
 matched, non-reconciled native transaction is available with idempotency
 and an audit event, not as automatic financial posting.
 
+**Learning-assisted suggestions:** available immediately, initially in cold
+start until human-reviewed labels accumulate in each company/account/direction.
+It is intentionally read-only and does not silently set tax categories,
+counterparty identities, invoice payments or native ledger entries. A
+statistical confidence score is not a substitute for independent validation.
+Compare an eventual Rubix ML backend against this in-process probabilistic
+baseline on an isolated labeled holdout before enabling automatic writes,
+even to staging.
+
 **Remaining:** pagination beyond the first 50 per filter, richer transaction
 search beyond exact amount/account/direction constraints, comprehensive
 reconciliation of transfers, refunds, partial invoice payments and historical
