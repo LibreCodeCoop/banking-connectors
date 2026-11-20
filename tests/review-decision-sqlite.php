@@ -35,7 +35,7 @@ $db->exec("CREATE TABLE transactions (
     id INTEGER PRIMARY KEY, company_id INTEGER NOT NULL,
     account_id INTEGER NOT NULL, paid_at DATETIME NOT NULL,
     type VARCHAR(24) NOT NULL, amount NUMERIC NOT NULL,
-    currency_code VARCHAR(3) NOT NULL, parent_id INTEGER NOT NULL DEFAULT 0,
+    currency_code VARCHAR(3) NOT NULL, category_id INTEGER NULL, parent_id INTEGER NOT NULL DEFAULT 0,
     split_id INTEGER NULL, reference VARCHAR(255) NULL, deleted_at DATETIME NULL
 )");
 $stmt = $db->prepare('INSERT INTO transactions
@@ -50,6 +50,11 @@ foreach ([
 ] as $row) {
     $stmt->execute($row);
 }
+$db->exec("INSERT INTO categories(id,company_id,name,type,enabled) VALUES
+ (14,1,'Client payment','income',1),(15,1,'Production payout','expense',1),
+ (16,2,'Foreign tenant','income',1),(17,1,'Other manual category','expense',1)");
+$db->exec('UPDATE transactions SET category_id=14 WHERE id=101');
+$db->exec('UPDATE transactions SET category_id=15 WHERE id=103');
 $stage = new PdoEntryStage($db);
 $secret = str_repeat('stable-review-fixture-key-', 2);
 $stage->ingest(1, 1, 9, 'sicoob', [
@@ -76,6 +81,9 @@ $key6 = str_repeat('f', 32);
 $accept = $review->decide(1, 9, 1, $a, 71, 'accept', 101, $key1);
 checkReview($accept['state'] === 'reviewed' && !$accept['idempotent'],
     'manual decision records a candidate in module-owned staging only');
+$linked=$db->query("SELECT category_id,category_source FROM lcc_banking_connectors_entries WHERE id=$a")->fetch(PDO::FETCH_ASSOC);
+checkReview((int)$linked['category_id']===14 && $linked['category_source']==='linked_native',
+    'confirmed native association immediately inherits validated native category');
 $replay = $review->decide(1, 9, 1, $a, 71, 'accept', 101, $key1);
 checkReview($replay['idempotent'] && $replay['event_id'] === $accept['event_id'],
     'network replay does not create a second decision event');
@@ -102,9 +110,12 @@ try {
 }
 checkReview($db->query("SELECT state FROM lcc_banking_connectors_entries WHERE id=$b")->fetchColumn() === 'pending',
     'rejected duplicate target leaves original pending entry intact');
+$db->exec('UPDATE transactions SET category_id=16 WHERE id=102');
 $another = $review->decide(1, 9, 1, $b, 72, 'accept', 102, $key3);
 checkReview($another['state'] === 'reviewed',
     'operator may resolve ambiguous equal-value events by choosing different native IDs');
+checkReview($db->query("SELECT category_id FROM lcc_banking_connectors_entries WHERE id=$b")->fetchColumn()===null,
+    'foreign-company native category is never inherited');
 try {
     $review->decide(1, 9, 1, $c, 72, 'accept', 103, $key4);
     throw new RuntimeException('FAIL mismatched amount accepted');
@@ -139,12 +150,25 @@ $reopenedAccepted = $review->decide(1, 9, 1, $a, 71, 'reopen', null, $key6);
 checkReview($reopenedAccepted['state'] === 'pending' &&
     $db->query("SELECT linked_transaction_id FROM lcc_banking_connectors_entries WHERE id=$a")->fetchColumn() === null,
     'reopening a match frees native candidate while preserving audit');
+$reset=$db->query("SELECT category_id,category_source FROM lcc_banking_connectors_entries WHERE id=$a")->fetch(PDO::FETCH_ASSOC);
+checkReview($reset['category_id']===null && $reset['category_source']===null,
+    'reopening retracts only the category inferred from the former native link');
 $after = $db->query('SELECT id,amount,type FROM transactions ORDER BY id')
     ->fetchAll(PDO::FETCH_ASSOC);
 checkReview($before === $after, 'native accounting transactions never modified by audit decisions');
 checkReview((int) $db->query('SELECT COUNT(*) FROM lcc_banking_connectors_review_events')->fetchColumn() === 5,
     'one immutable event per successful business decision');
 checkReview(!$db->inTransaction(), 'all success and rejection paths leave no open transaction');
+$db->exec("UPDATE lcc_banking_connectors_entries SET category_id=17,category_source='manual' WHERE id=$d");
+$manual=$review->decide(1,9,1,$d,72,'accept',103,str_repeat('8',32));
+checkReview($manual['state']==='reviewed' &&
+    (int)$db->query("SELECT category_id FROM lcc_banking_connectors_entries WHERE id=$d")->fetchColumn()===17,
+    'existing manual category always wins over inherited financial classification');
+$retracted=$review->decide(1,9,1,$d,72,'reopen',null,str_repeat('7',32));
+$manualKept=$db->query("SELECT category_id,category_source FROM lcc_banking_connectors_entries WHERE id=$d")->fetch(PDO::FETCH_ASSOC);
+checkReview($retracted['state']==='pending' && (int)$manualKept['category_id']===17 &&
+    $manualKept['category_source']==='manual',
+    'reopening only removes inferred category; explicit manual category is retained');
 // Transfer legs already posted by Akaunting may be linked to their bank
 // source without creating any income or expense for the same economic event.
 $stmt->execute([106,1,9,'2026-11-17 11:40:00','expense-transfer','75.00','BRL']);
@@ -155,8 +179,11 @@ $fp=$transfer->fingerprint($secret);
 $lookup=$db->prepare('SELECT id FROM lcc_banking_connectors_entries WHERE source_fingerprint=?');
 $lookup->execute([$fp]);
 $transferId=(int)$lookup->fetchColumn();
+$db->exec('UPDATE transactions SET category_id=15 WHERE id=106');
 $accepted=$review->decide(1,9,1,$transferId,72,'accept',106,str_repeat('9',32));
 checkReview($accepted['state']==='reviewed' &&
     (int)$db->query('SELECT linked_transaction_id FROM lcc_banking_connectors_entries WHERE id='.$transferId)->fetchColumn()===106,
     'native transfer leg is manually linked instead of duplicated as expense');
+checkReview($db->query("SELECT category_id FROM lcc_banking_connectors_entries WHERE id=$transferId")->fetchColumn()===null,
+    'internal transfer never inherits an operating-expense category');
 echo 'Review decision tests passed in isolated SQLite; no Akaunting writes.' . PHP_EOL;

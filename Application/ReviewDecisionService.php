@@ -27,6 +27,8 @@ final class ReviewDecisionService
 {
     private readonly string $entries;
     private readonly string $events;
+    private readonly string $transactions;
+    private readonly string $categories;
 
     public function __construct(
         private readonly PDO $db,
@@ -39,6 +41,8 @@ final class ReviewDecisionService
         }
         $this->entries = $prefix . 'lcc_banking_connectors_entries';
         $this->events = $prefix . 'lcc_banking_connectors_review_events';
+        $this->transactions = $prefix . 'transactions';
+        $this->categories = $prefix . 'categories';
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     }
 
@@ -93,7 +97,7 @@ final class ReviewDecisionService
 
             $query = "SELECT id, company_id, account_id, connection_id, provider,
                              movement_date, direction, amount_cents, currency,
-                             state, linked_transaction_id,
+                             state, linked_transaction_id, category_id, category_source,
                              source_fingerprint, content_fingerprint
                       FROM {$this->entries}
                       WHERE id = :id AND connection_id = :connection_id
@@ -150,11 +154,34 @@ final class ReviewDecisionService
                 }
             }
 
+            $category = $entry['category_id'] === null ? null : (int) $entry['category_id'];
+            $categorySource = $entry['category_source'] === null
+                ? null : (string) $entry['category_source'];
+            if ($action === 'accept' && $category === null && $categorySource === null) {
+                // The user has explicitly chosen an eligible native record.
+                // Its existing category is a fact, not an ML prediction. Copy
+                // only an active, same-company, correct-direction category.
+                $inherited = $this->nativeCategory(
+                    $companyId, $accountId, (int) $nativeTransactionId,
+                    (string) $entry['direction']
+                );
+                if ($inherited !== null) {
+                    $category = $inherited;
+                    $categorySource = 'linked_native';
+                }
+            } elseif ($action === 'reopen' && $categorySource === 'linked_native') {
+                // Removing the explicit link must also remove its derived
+                // category. Never erase manual classifications or rule choices.
+                $category = null;
+                $categorySource = null;
+            }
+
             $now = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
                 ->format('Y-m-d H:i:s');
             $update = $this->db->prepare(
                 "UPDATE {$this->entries}
                  SET state = :state, linked_transaction_id = :native_id,
+                     category_id = :category_id, category_source = :category_source,
                      updated_at = :updated_at
                  WHERE id = :id AND company_id = :company_id
                    AND account_id = :account_id AND connection_id = :connection_id
@@ -162,6 +189,7 @@ final class ReviewDecisionService
             );
             $update->execute([
                 ':state' => $newState, ':native_id' => $newLink,
+                ':category_id' => $category, ':category_source' => $categorySource,
                 ':updated_at' => $now, ':id' => $entryId,
                 ':company_id' => $companyId, ':account_id' => $accountId,
                 ':connection_id' => $connectionId, ':previous_state' => $current,
@@ -201,6 +229,30 @@ final class ReviewDecisionService
             }
             throw $error;
         }
+    }
+
+    private function nativeCategory(int $company, int $account, int $nativeId, string $direction): ?int
+    {
+        if (!in_array($direction, ['credit', 'debit'], true)) return null;
+        $type = $direction === 'credit' ? 'income' : 'expense';
+        // A transfer leg may be associated, but must not be classified as an
+        // operating income or expense by inheriting a malformed category.
+        $stmt = $this->db->prepare(
+            "SELECT c.id FROM {$this->transactions} t
+             JOIN {$this->categories} c ON c.id = t.category_id
+               AND c.company_id = t.company_id AND c.enabled = 1
+               AND c.deleted_at IS NULL AND c.type = :category_type
+             WHERE t.id = :native AND t.company_id = :company
+               AND t.account_id = :account AND t.type = :transaction_type
+               AND t.deleted_at IS NULL"
+        );
+        $stmt->execute([
+            ':category_type' => $type, ':transaction_type' => $type,
+            ':native' => $nativeId,
+            ':company' => $company, ':account' => $account,
+        ]);
+        $value = $stmt->fetchColumn();
+        return $value === false ? null : (int) $value;
     }
 
     /** @return array<int,array<string,mixed>> */
