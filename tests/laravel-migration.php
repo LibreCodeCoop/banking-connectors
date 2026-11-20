@@ -67,12 +67,17 @@ $healthMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_18_1
 $healthMigration->up();
 $categoryMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_19_150000_add_banking_connectors_classification.php';
 $categoryMigration->up();
+$nativePublishMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_20_110000_add_native_bank_publication.php';
+$nativePublishMigration->up();
+$nativeIssueMigration = require dirname(__DIR__) . '/Database/Migrations/2026_11_20_113000_add_native_publication_issue_state.php';
+$nativeIssueMigration->up();
 // Akaunting owns this native table; create only its minimal shape in the
 // disposable in-memory migration fixture, never in the module migration.
 $pdo->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY,company_id INT,
     type VARCHAR(20),enabled INT,deleted_at DATETIME)');
 foreach (['lcc_banking_connectors_connections', 'lcc_banking_connectors_entries', 'lcc_banking_connectors_review_events',
-         'lcc_banking_connectors_category_rules','lcc_banking_connectors_category_events'] as $table) {
+         'lcc_banking_connectors_category_rules','lcc_banking_connectors_category_events',
+         'lcc_banking_connectors_native_publications'] as $table) {
     if (!Schema::hasTable($table)) {
         throw new RuntimeException('Migration did not create ' . $table);
     }
@@ -80,6 +85,15 @@ foreach (['lcc_banking_connectors_connections', 'lcc_banking_connectors_entries'
 if (!Schema::hasColumn('lcc_banking_connectors_connections', 'poll_requested_at') ||
     !Schema::hasColumn('lcc_banking_connectors_connections', 'next_retry_at')) {
     throw new RuntimeException('Operation state migration incomplete');
+}
+if (!Schema::hasColumn('lcc_banking_connectors_entries', 'publication_issue_code') ||
+    !Schema::hasColumn('lcc_banking_connectors_entries', 'publication_failures')) {
+    throw new RuntimeException('Native publishing incident schema missing after upgrade');
+}
+if (!Schema::hasColumn('lcc_banking_connectors_connections', 'native_post_enabled') ||
+    $capsule->getConnection()->table('lcc_banking_connectors_connections')
+        ->where('id',1)->value('native_post_enabled') != 0) {
+    throw new RuntimeException('Native publishing must remain disabled for upgrades');
 }
 if (!Schema::hasColumn('lcc_banking_connectors_connections', 'certificate_valid_to') ||
     !Schema::hasColumn('lcc_banking_connectors_connections', 'credentials_checked_at')) {
@@ -110,6 +124,8 @@ if ($first['inserted'] !== 1 || $second['duplicates'] !== 1 ||
 }
 echo 'PASS PDO storage works against the actual Laravel migration schema' . PHP_EOL;
 
+$nativeIssueMigration->down();
+$nativePublishMigration->down();
 $categoryMigration->down();
 $healthMigration->down();
 $opsMigration->down();

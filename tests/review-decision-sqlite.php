@@ -145,4 +145,18 @@ checkReview($before === $after, 'native accounting transactions never modified b
 checkReview((int) $db->query('SELECT COUNT(*) FROM lcc_banking_connectors_review_events')->fetchColumn() === 5,
     'one immutable event per successful business decision');
 checkReview(!$db->inTransaction(), 'all success and rejection paths leave no open transaction');
+// Transfer legs already posted by Akaunting may be linked to their bank
+// source without creating any income or expense for the same economic event.
+$stmt->execute([106,1,9,'2026-11-17 11:40:00','expense-transfer','75.00','BRL']);
+$transfer=new BankEntry(1,9,'sicoob','transfer-leg-source',
+    '2026-11-17','debit',7500,'BRL');
+$stage->ingest(1,1,9,'sicoob',[$transfer],$secret);
+$fp=$transfer->fingerprint($secret);
+$lookup=$db->prepare('SELECT id FROM lcc_banking_connectors_entries WHERE source_fingerprint=?');
+$lookup->execute([$fp]);
+$transferId=(int)$lookup->fetchColumn();
+$accepted=$review->decide(1,9,1,$transferId,72,'accept',106,str_repeat('9',32));
+checkReview($accepted['state']==='reviewed' &&
+    (int)$db->query('SELECT linked_transaction_id FROM lcc_banking_connectors_entries WHERE id='.$transferId)->fetchColumn()===106,
+    'native transfer leg is manually linked instead of duplicated as expense');
 echo 'Review decision tests passed in isolated SQLite; no Akaunting writes.' . PHP_EOL;

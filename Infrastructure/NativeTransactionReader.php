@@ -50,7 +50,7 @@ final class NativeTransactionReader
                 FROM {$this->table}
                 WHERE company_id = :company_id AND account_id = :account_id
                   AND paid_at >= :from_date AND paid_at < :until_date
-                  AND type IN ('income', 'expense')
+                  AND type IN ('income', 'expense', 'income-transfer', 'expense-transfer')
                   AND parent_id = 0 AND split_id IS NULL
                   AND deleted_at IS NULL
                 ORDER BY paid_at DESC, id DESC LIMIT 201";
