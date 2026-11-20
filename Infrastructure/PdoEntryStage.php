@@ -109,13 +109,13 @@ final class PdoEntryStage
                         "INSERT INTO {$this->entriesTable}
                         (connection_id, company_id, account_id, provider,
                          source_fingerprint, content_fingerprint, movement_date,
-                         direction, amount_cents, currency, bank_description,
+                         direction, amount_cents, currency, bank_description, bank_details,
                          category_id, category_source, category_rule_id, state, conflict_count,
                          first_seen_at, last_seen_at, created_at, updated_at)
                         VALUES
                         (:connection_id, :company_id, :account_id, :provider,
                          :source_key, :content_key, :movement_date,
-                         :direction, :amount_cents, :currency, :bank_description,
+                         :direction, :amount_cents, :currency, :bank_description, :bank_details,
                          :category_id, :category_source, :rule_id, :state, 0,
                          :first_seen_at, :last_seen_at, :created_at, :updated_at)"
                     );
@@ -131,6 +131,7 @@ final class PdoEntryStage
                         ':amount_cents' => $entry->amountCents,
                         ':currency' => $entry->currency,
                         ':bank_description' => $entry->description,
+                        ':bank_details' => self::serializeDetails($provider, $entry->details),
                         ':category_id' => $suggested['category_id'] ?? null,
                         ':category_source' => $suggested === null ? null : 'rule',
                         ':rule_id' => $suggested['rule_id'] ?? null,
@@ -150,7 +151,7 @@ final class PdoEntryStage
                     }
                 }
 
-                $query = "SELECT id, content_fingerprint, state
+                $query = "SELECT id, content_fingerprint, state, bank_details
                           FROM {$this->entriesTable}
                           WHERE connection_id = :connection_id
                             AND company_id = :company_id
@@ -194,12 +195,16 @@ final class PdoEntryStage
                     continue;
                 }
 
+                $enrichedDetails = self::mergeDetails($provider, $existing['bank_details'], $entry->details);
                 $update = $this->db->prepare(
                     "UPDATE {$this->entriesTable}
                      SET last_seen_at = :observed, updated_at = :updated,
                          bank_description = CASE
                            WHEN :description IS NOT NULL THEN :new_description
                            ELSE bank_description END,
+                         bank_details = CASE
+                           WHEN :bank_details IS NOT NULL THEN :bank_details_update
+                           ELSE bank_details END,
                          category_id = CASE
                            WHEN state='pending' AND (category_source IS NULL OR category_source='rule')
                            THEN :category ELSE category_id END,
@@ -215,6 +220,8 @@ final class PdoEntryStage
                     ':observed' => $now, ':updated' => $now,
                     ':description' => $entry->description,
                     ':new_description' => $entry->description,
+                    ':bank_details' => $enrichedDetails,
+                    ':bank_details_update' => $enrichedDetails,
                     ':category' => $suggested['category_id'] ?? null,
                     ':rule_id' => $suggested['rule_id'] ?? null,
                     ':source' => $suggested === null ? null : 'rule',
@@ -233,6 +240,61 @@ final class PdoEntryStage
     }
 
     /**
+     * Add read-only verified evidence to exactly one bank movement. Never
+     * mutate financial facts, bookkeeping links or review decisions.
+     * @param array<string,string> $details
+     */
+    public function enrichDetails(int $company,int $account,int $connection,int $entry,
+        string $expectedContentFingerprint,array $details): void
+    {
+        if ($company<1 || $account<1 || $connection<1 || $entry<1 ||
+            !preg_match('/^[a-f0-9]{64}$/D',$expectedContentFingerprint)) {
+            throw new InvalidArgumentException('invalid_enrichment_scope');
+        }
+        $this->assertConnection($connection,$company,$account,null,false);
+        if ($details===[]) return;
+        if ($this->db->inTransaction()) throw new RuntimeException('nested_transaction_not_supported');
+        $this->db->beginTransaction();
+        try {
+            $query="SELECT provider,bank_details,content_fingerprint,state,movement_date,direction,amount_cents,currency
+                    FROM {$this->entriesTable}
+                    WHERE id=:entry AND company_id=:company AND account_id=:account AND connection_id=:connection";
+            if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql') $query.=' FOR UPDATE';
+            $find=$this->db->prepare($query);
+            $find->execute([':entry'=>$entry,':company'=>$company,':account'=>$account,':connection'=>$connection]);
+            $row=$find->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($row) || ($row['state']??null)==='conflict' ||
+                !hash_equals($expectedContentFingerprint,(string)$row['content_fingerprint'])) {
+                throw new DomainException('bank_enrichment_stale_entry');
+            }
+            // Reuse BankEntry's bounded UTF-8 and identifier validation.
+            new BankEntry($company,$account,(string)$row['provider'],null,
+                (string)$row['movement_date'],(string)$row['direction'],
+                (int)$row['amount_cents'],(string)$row['currency'],null,$details);
+            $serialized=self::mergeDetails((string)$row['provider'],$row['bank_details'],$details,true);
+            $save=$this->db->prepare(
+                "UPDATE {$this->entriesTable}
+                 SET bank_details=:details,
+                     bank_details_enrichment_state='complete',
+                     bank_details_enrichment_checked_at=:updated,
+                     updated_at=:updated
+                 WHERE id=:entry AND company_id=:company AND account_id=:account
+                   AND connection_id=:connection AND content_fingerprint=:fingerprint"
+            );
+            $save->execute([
+                ':details'=>$serialized,':updated'=>(new DateTimeImmutable('now',new DateTimeZone('UTC')))->format('Y-m-d H:i:s'),
+                ':entry'=>$entry,':company'=>$company,':account'=>$account,
+                ':connection'=>$connection,':fingerprint'=>$expectedContentFingerprint,
+            ]);
+            if ($save->rowCount()!==1) throw new DomainException('bank_enrichment_stale_entry');
+            $this->db->commit();
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    /**
      * This data may be shown only after the caller checks native Akaunting
      * company and banking-account ACL. No raw source IDs or HMACs are exposed.
      *
@@ -246,8 +308,9 @@ final class PdoEntryStage
         $this->assertConnection($connectionId, $companyId, $accountId, null, false);
         $stmt = $this->db->prepare(
             "SELECT id, provider, movement_date, direction, amount_cents, currency,
-                    bank_description, category_id, category_source, category_rule_id,
-                    state, linked_transaction_id, conflict_count, first_seen_at, last_seen_at
+                    bank_description, bank_details, category_id, category_source, category_rule_id,
+                    state, linked_transaction_id, conflict_count, first_seen_at, last_seen_at,
+                    bank_details_enrichment_state,bank_details_enrichment_checked_at
              FROM {$this->entriesTable}
              WHERE connection_id = :connection_id AND company_id = :company_id
                AND account_id = :account_id
@@ -283,8 +346,9 @@ final class PdoEntryStage
         };
         $q=$this->db->prepare(
             "SELECT id,provider,movement_date,direction,amount_cents,currency,
-                    bank_description,category_id,category_source,category_rule_id,
-                    state,linked_transaction_id,conflict_count,first_seen_at,last_seen_at
+                    bank_description,bank_details,category_id,category_source,category_rule_id,
+                    state,linked_transaction_id,conflict_count,first_seen_at,last_seen_at,
+                    bank_details_enrichment_state,bank_details_enrichment_checked_at
              FROM {$this->entriesTable}
              WHERE company_id=:company AND account_id=:account AND connection_id=:connection
                AND state IN ({$states})
@@ -305,8 +369,9 @@ final class PdoEntryStage
         $this->assertConnection($connection, $company, $account, null, false);
         $q = $this->db->prepare(
             "SELECT id,provider,movement_date,direction,amount_cents,currency,
-                    bank_description,category_id,category_source,category_rule_id,
-                    state,linked_transaction_id,conflict_count,first_seen_at,last_seen_at
+                    bank_description,bank_details,category_id,category_source,category_rule_id,
+                    state,linked_transaction_id,conflict_count,first_seen_at,last_seen_at,
+                    bank_details_enrichment_state,bank_details_enrichment_checked_at
              FROM {$this->entriesTable}
              WHERE id=:entry AND company_id=:company AND account_id=:account
                AND connection_id=:connection LIMIT 1"
@@ -380,6 +445,43 @@ final class PdoEntryStage
                 && str_contains($message, 'lcc_bc_entry_source_unique'),
             default => false,
         };
+    }
+
+    /** @param array<string,string> $details */
+    private static function serializeDetails(string $provider, array $details): ?string
+    {
+        if ($details === []) return null;
+        $json=json_encode([
+            'schema_version'=>1,'provider'=>$provider,'fields'=>$details,
+        ], JSON_THROW_ON_ERROR);
+        if (strlen($json)>4096) throw new InvalidArgumentException('bank_details_too_large');
+        return $json;
+    }
+
+    /**
+     * A replay can contribute missing facts, never erase previously imported
+     * metadata. Conflicting financial facts are handled before reaching this.
+     * @param array<string,string> $incoming
+     */
+    private static function mergeDetails(string $provider, mixed $prior, array $incoming, bool $trustedOverride=false): ?string
+    {
+        $old=[];
+        if (is_string($prior) && strlen($prior)<=4096) {
+            $decoded=json_decode($prior,true);
+            if (is_array($decoded)) {
+                if (isset($decoded['schema_version'])) {
+                    if ($decoded['schema_version']===1 && ($decoded['provider']??null)===$provider &&
+                        is_array($decoded['fields']??null)) $old=$decoded['fields'];
+                } else {
+                    // Backward-compatible only for pre-release legacy flat values.
+                    $old=$decoded;
+                }
+            }
+        }
+        // Statement replays fill gaps; explicit verified Pix enrichment may
+        // refine previous values without losing unrelated metadata.
+        $merged=$trustedOverride ? array_replace($old,$incoming) : ($old + $incoming);
+        return self::serializeDetails($provider,$merged);
     }
 
     private static function contentFingerprint(BankEntry $entry, string $secret): string

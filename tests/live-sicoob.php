@@ -9,6 +9,7 @@ declare(strict_types=1);
  */
 require dirname(__DIR__) . '/Domain/BankEntry.php';
 require dirname(__DIR__) . '/Contracts/BankStatementProvider.php';
+require dirname(__DIR__) . '/Connectors/Sicoob/SicoobMovementDetails.php';
 require dirname(__DIR__) . '/Connectors/Sicoob/SicoobStatementMapper.php';
 require dirname(__DIR__) . '/Connectors/Sicoob/SicoobProvider.php';
 require dirname(__DIR__) . '/Contracts/BankTransportFailure.php';

@@ -6,6 +6,8 @@ declare(strict_types=1);
 namespace Modules\BankingConnectors\Application;
 
 use InvalidArgumentException;
+use Modules\BankingConnectors\Application\BankConnectorRegistry;
+use Modules\BankingConnectors\Contracts\BankMovementDetailsProvider;
 use Modules\BankingConnectors\Domain\BankEntry;
 use Modules\BankingConnectors\Domain\CategoryRuleEngine;
 use Modules\BankingConnectors\Domain\MatchingEngine;
@@ -21,6 +23,7 @@ final class ReviewPreview
         private readonly PdoEntryStage $stage,
         private readonly NativeTransactionReader $native,
         private readonly MatchingEngine $matching,
+        private readonly ?BankConnectorRegistry $providers = null,
     ) {}
 
     /**
@@ -119,7 +122,14 @@ final class ReviewPreview
                 'amount_cents'=>$movement->amountCents,
                 'currency'=>$movement->currency,
                 'description'=>$movement->description,
+                // Additional provider details are confined to the dedicated
+                // entry view, not the paginated API preview or review queue.
+                'bank_details'=>$entryId === null ? [] : $this->describeDetails(
+                    (string)$record['provider'], $record['bank_details']??null
+                ),
                 'stage_state'=>$record['state'],
+                'bank_enrichment_state'=>$entryId===null?null:($record['bank_details_enrichment_state']??null),
+                'bank_enrichment_checked_at'=>$entryId===null?null:($record['bank_details_enrichment_checked_at']??null),
                 'linked_transaction_id'=>isset($record['linked_transaction_id'])
                     ? (int)$record['linked_transaction_id'] : null,
                 'status'=>$decision['status'],
@@ -135,5 +145,33 @@ final class ReviewPreview
             ];
         }
         return ['items'=>$items,'summary'=>$summary];
+    }
+    /** @return array<string,array{label:string,group:string,value:string}> */
+    private function describeDetails(string $provider,mixed $serialized): array
+    {
+        if (!$this->providers || !$this->providers->has($provider) ||
+            !is_string($serialized) || strlen($serialized)>4096) return [];
+        $connector=$this->providers->get($provider);
+        if (!$connector instanceof BankMovementDetailsProvider) return [];
+        $parsed=json_decode($serialized,true);
+        if (!is_array($parsed)) return [];
+        // Versioned envelope. Older pre-release flat data remains readable.
+        if (isset($parsed['schema_version'])) {
+            if ($parsed['schema_version']!==1 || ($parsed['provider']??null)!==$provider ||
+                !is_array($parsed['fields']??null)) return [];
+            $parsed=$parsed['fields'];
+        }
+        $result=[];
+        foreach ($connector->detailDefinitions() as $key=>$definition) {
+            $value=$parsed[$key]??null;
+            if (!is_string($value) || strlen($value)>240 || !preg_match('//u',$value) ||
+                preg_match('/[\x00-\x1F\x7F]/',$value)) continue;
+            $result[$key]=[
+                'label'=>$definition['label'],
+                'group'=>$definition['group'],
+                'value'=>$value,
+            ];
+        }
+        return $result;
     }
 }

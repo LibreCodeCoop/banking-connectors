@@ -21,6 +21,8 @@ final class BankEntry
         public readonly int $amountCents,
         public readonly string $currency = 'BRL',
         public readonly ?string $description = null,
+        /** @var array<string,string> Normalized, allowlisted provider details. */
+        public readonly array $details = [],
     ) {
         if ($companyId < 1 || $accountId < 1) {
             throw new InvalidArgumentException('invalid_scope');
@@ -44,6 +46,16 @@ final class BankEntry
         }
         if (!preg_match('/^[A-Z]{3}$/', $currency)) {
             throw new InvalidArgumentException('invalid_currency');
+        }
+        if (count($details) > 20 || strlen(json_encode($details, JSON_THROW_ON_ERROR)) > 4096) {
+            throw new InvalidArgumentException('invalid_bank_details');
+        }
+        foreach ($details as $key => $value) {
+            if (!is_string($key) || !preg_match('/^[a-z_]{2,40}$/D', $key) ||
+                !is_string($value) || strlen($value) > 240 ||
+                !preg_match('//u', $value) || preg_match('/[\x00-\x1F\x7F]/', $value)) {
+                throw new InvalidArgumentException('invalid_bank_details');
+            }
         }
         if ($description !== null && (
             strlen($description) > 240 ||

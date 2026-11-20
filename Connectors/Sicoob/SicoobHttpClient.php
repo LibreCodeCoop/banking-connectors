@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Modules\BankingConnectors\Connectors\Sicoob;
 
 final class SicoobHttpClient {
-    private ?string $cachedToken = null;
-    private int $tokenExpiresAt = 0;
+    /** @var array<string,array{token:string,until:int}> */
+    private array $tokens = [];
 
     public function __construct(private array $config, private readonly ?\Closure $testExchange = null) {
         if (!in_array($config['MODE'] ?? '', ['sandbox', 'production'], true)) {
@@ -98,7 +98,7 @@ final class SicoobHttpClient {
         return $json;
     }
 
-    private function accessToken(): string {
+    private function accessToken(string $scope = 'cco_consulta'): string {
         if (($this->config['MODE'] ?? '') === 'sandbox') {
             $file = $this->config['SANDBOX_TOKEN_FILE'] ?? '';
             if (!is_file($file) || !is_readable($file)) {
@@ -110,22 +110,51 @@ final class SicoobHttpClient {
             }
             return preg_replace('/^Bearer\s+/i', '', $token) ?? $token;
         }
-        if ($this->cachedToken !== null && $this->tokenExpiresAt > time()) {
-            return $this->cachedToken;
+        if (isset($this->tokens[$scope]) && $this->tokens[$scope]['until'] > time()) {
+            return $this->tokens[$scope]['token'];
         }
         $json = $this->request('POST', $this->config['AUTH_URL'], ['Content-Type: application/x-www-form-urlencoded'], [
             'grant_type' => 'client_credentials',
             'client_id' => $this->config['CLIENT_ID'],
-            'scope' => 'cco_consulta',
+            'scope' => $scope,
         ]);
         if (!isset($json['access_token']) || !is_string($json['access_token'])) {
             throw new \RuntimeException('Token response missing access_token');
         }
         $expiresIn = filter_var($json['expires_in'] ?? null, FILTER_VALIDATE_INT);
         $ttl = ($expiresIn !== false && $expiresIn !== null && $expiresIn > 0) ? min($expiresIn, 3600) : 60;
-        $this->cachedToken = $json['access_token'];
-        $this->tokenExpiresAt = time() + max(0, $ttl - 30);
-        return $this->cachedToken;
+        $this->tokens[$scope] = ['token'=>$json['access_token'], 'until'=>time() + max(0, $ttl - 30)];
+        return $this->tokens[$scope]['token'];
+    }
+
+    /** Read a single received Pix. Requires a separately authorized pix.read scope. */
+    public function receivedPix(string $e2eid): array
+    {
+        if (!preg_match('/^E[0-9]{8}[A-Za-z0-9]{23}$/D',$e2eid)) {
+            throw new \InvalidArgumentException('pix_end_to_end_id_invalid');
+        }
+        $base=$this->config['PIX_API_BASE_URL']??null;
+        if (!is_string($base) || $base==='') {
+            throw new \DomainException('pix_enrichment_not_configured');
+        }
+        $url=rtrim($base,'/').'/pix/'.$e2eid;
+        $parts=parse_url($url);
+        if (($parts['scheme']??null)!=='https' ||
+            ($parts['host']??null)!==($this->config['MODE']==='production'
+                ?'api.sicoob.com.br':'sandbox.sicoob.com.br') ||
+            !str_starts_with((string)($parts['path']??''),'/pix/api/v2/pix/')) {
+            throw new \DomainException('pix_api_endpoint_not_trusted');
+        }
+        $response=$this->request('GET',$url,[
+            'Authorization: Bearer '.$this->accessToken('pix.read'),
+            'client_id: '.$this->config['CLIENT_ID'],
+            'Accept: application/json',
+        ]);
+        if (!isset($response['endToEndId']) || !isset($response['valor']) ||
+            !isset($response['horario'])) {
+            throw new \DomainException('pix_response_invalid');
+        }
+        return $response;
     }
 
     public function statement(int $year, int $month, int $dayFrom, int $dayTo): array {
@@ -151,8 +180,7 @@ final class SicoobHttpClient {
             if ($this->config['MODE'] !== 'production' || !($e instanceof SicoobHttpFailure) || ($e->status !== 401 || !$e->statementRequest)) {
                 throw $e;
             }
-            $this->cachedToken = null;
-            $this->tokenExpiresAt = 0;
+            unset($this->tokens['cco_consulta']);
             return $this->request('GET', $url, [
                 'Authorization: Bearer ' . $this->accessToken(),
                 'client_id: ' . $this->config['CLIENT_ID'],

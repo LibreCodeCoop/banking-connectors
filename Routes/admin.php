@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\BankingConnectors\Http\Controllers\ReviewController;
 use Modules\BankingConnectors\Http\Controllers\ConnectionController;
 use Modules\BankingConnectors\Http\Controllers\ClassificationController;
+use Modules\BankingConnectors\Http\Controllers\EnrichmentController;
 
 Route::admin('banking-connectors', static function (): void {
     // Read-only preview and explicitly authorized review metadata.
@@ -21,6 +22,8 @@ Route::admin('banking-connectors', static function (): void {
 
 // Review of bank exceptions from the native transactions workspace.
 Route::admin('banking-connectors', static function (): void {
+    Route::post('bank-feed/accounts/{accountId}/entries/{entryId}/enrich', [EnrichmentController::class, 'request'])
+        ->whereNumber('accountId')->whereNumber('entryId')->name('entry.enrich');
     Route::get('bank-feed/accounts/{accountId}/entries/{entryId}', [ReviewController::class, 'reviewEntry'])
         ->whereNumber('accountId')->whereNumber('entryId')->name('entry');
     Route::get('bank-feed/accounts/{accountId}', [ReviewController::class, 'reviewAccount'])

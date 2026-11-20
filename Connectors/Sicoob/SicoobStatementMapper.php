@@ -46,6 +46,7 @@ final class SicoobStatementMapper
                     direction: $direction,
                     amountCents: self::parseMoney($row['valor'] ?? null),
                     description: self::safeDescription($row['descricao'] ?? null),
+                    details: SicoobMovementDetails::fromStatement($row),
                 );
                 $seen[$id] = true;
                 $entries[] = $entry;
