@@ -93,6 +93,8 @@ return [
     'bank_detail_origin_ispb' => 'ISPB de origem',
     'bank_detail_destination_ispb' => 'ISPB de destino',
     'bank_detail_time' => 'Horário informado pelo banco',
+    'show_match_options' => 'Escolher lançamento para associação',
+    'other_review_actions' => 'Outras ações',
     'single_entry_title' => 'Revisar movimentação bancária',
     'native_resolve' => 'Revisar / corrigir',
     'native_no_movements' => 'Nenhuma movimentação bancária neste filtro.',

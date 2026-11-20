@@ -13,6 +13,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\BankingConnectors\Application\CategoryWorkflow;
+use Modules\BankingConnectors\Http\ReturnLocation;
 
 /** Explicit company- and account-scoped financial classification controls. */
 final class ClassificationController extends Controller
@@ -61,6 +62,7 @@ final class ClassificationController extends Controller
             'return_filter'=>'nullable|in:pending,reviewed,dismissed,all,needs_action,uncategorized,unlinked,conflict,imported,posted,matched,ignored',
             'return_to'=>'nullable|in:transactions',
             'return_entry_id'=>'nullable|integer|min:1',
+            'from'=>'nullable|string|max:2048',
         ]);
         $category=isset($v['category_id'])?(int)$v['category_id']:null;
         $expected=isset($v['expected_native_category_id'])
@@ -110,10 +112,12 @@ final class ClassificationController extends Controller
             return response()->json(['data'=>$result],200);
         }
         $detailId=filter_var($request->input('return_entry_id'),FILTER_VALIDATE_INT);
+        $backSource=ReturnLocation::forCompany($request->input('from'),$company);
         $routeEntryId=filter_var($request->route('entryId'),FILTER_VALIDATE_INT);
         if ($tab==='review' && $detailId!==false && $detailId>0 && $detailId===$routeEntryId) {
             return redirect()->route('banking-connectors.transactions.entry',[
                 'company_id'=>$company,'accountId'=>$account,'entryId'=>$detailId,
+                ...($backSource !== null ? ['from'=>$backSource] : []),
             ])->with('success',trans('banking-connectors::general.classification_saved'));
         }
         if ($tab==='review' && $request->input('return_to')==='transactions') {
