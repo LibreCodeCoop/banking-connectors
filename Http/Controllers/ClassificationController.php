@@ -60,6 +60,7 @@ final class ClassificationController extends Controller
             'request_key'=>['required','regex:/^[a-f0-9]{32}$/D'],
             'return_filter'=>'nullable|in:pending,reviewed,dismissed,all,needs_action,uncategorized,unlinked,conflict,imported,posted,matched,ignored',
             'return_to'=>'nullable|in:transactions',
+            'return_entry_id'=>'nullable|integer|min:1',
         ]);
         $category=isset($v['category_id'])?(int)$v['category_id']:null;
         $expected=isset($v['expected_native_category_id'])
@@ -107,6 +108,13 @@ final class ClassificationController extends Controller
         }
         if ($request->expectsJson()) {
             return response()->json(['data'=>$result],200);
+        }
+        $detailId=filter_var($request->input('return_entry_id'),FILTER_VALIDATE_INT);
+        $routeEntryId=filter_var($request->route('entryId'),FILTER_VALIDATE_INT);
+        if ($tab==='review' && $detailId!==false && $detailId>0 && $detailId===$routeEntryId) {
+            return redirect()->route('banking-connectors.transactions.entry',[
+                'company_id'=>$company,'accountId'=>$account,'entryId'=>$detailId,
+            ])->with('success',trans('banking-connectors::general.classification_saved'));
         }
         if ($tab==='review' && $request->input('return_to')==='transactions') {
             $filter=(string)$request->input('return_filter','needs_action');

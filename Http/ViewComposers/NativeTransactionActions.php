@@ -97,27 +97,14 @@ final class NativeTransactionActions
     {
         $account=(int)$row->account_id;
         $company=(int)company_id();
-        $review=route('banking-connectors.transactions.review',[
-            'company_id'=>$company,'accountId'=>$account,
-            'filter'=>$row->state==='pending'?'pending':'all',
-        ]);
-        $actions=[
-            [
-                'title'=>trans('banking-connectors::general.native_action_view_entry'),
-                'icon'=>'visibility',
-                'url'=>route('transactions.index',[
-                    'company_id'=>$company,
-                    'search'=>'bank_movement:imported account_id:'.$account,
-                    'bank_entry_id'=>(int)$row->id,
-                ]),
-                'permission'=>'read-banking-transactions',
-            ],
-            [
-                'title'=>trans('banking-connectors::general.native_resolve'),
-                'icon'=>'fact_check','url'=>$review,
-                'permission'=>'read-banking-transactions',
-            ],
-        ];
+        $actions=[[
+            'title'=>trans('banking-connectors::general.native_resolve'),
+            'icon'=>'fact_check',
+            'url'=>route('banking-connectors.transactions.entry',[
+                'company_id'=>$company,'accountId'=>$account,'entryId'=>(int)$row->id,
+            ]),
+            'permission'=>'read-banking-transactions',
+        ]];
         $native=(int)($row->native_transaction_id??0);
         if ($native>0) {
             $actions[]=[
@@ -155,18 +142,6 @@ final class NativeTransactionActions
                 'permission'=>'create-banking-transactions',
             ];
         }
-        if (auth()->user()->can('update-banking-accounts') &&
-            Route::has('banking-connectors.account.show')) {
-            $actions[]=['type'=>'divider'];
-            $actions[]=[
-                'title'=>trans('banking-connectors::general.native_action_account_settings'),
-                'icon'=>'settings',
-                'url'=>route('banking-connectors.account.show',[
-                    'company_id'=>$company,'accountId'=>$account,
-                ]),
-                'permission'=>'update-banking-accounts',
-            ];
-        }
         return $actions;
     }
 
@@ -187,30 +162,17 @@ final class NativeTransactionActions
         $account=(int)$model->account_id;
         $company=(int)company_id();
         $link=$map['linked'][(int)$model->id]??null;
-        $actions[]=['type'=>'divider'];
         if ($link !== null && (int)$link->account_id===$account) {
+            $actions[]=['type'=>'divider'];
             $actions[]=[
-                'title'=>trans('banking-connectors::general.native_action_view_entry'),
-                'icon'=>'account_balance',
-                'url'=>route('transactions.index',[
-                    'company_id'=>$company,
-                    'search'=>'bank_movement:imported account_id:'.$account,
-                    'bank_entry_id'=>(int)$link->id,
+                'title'=>trans('banking-connectors::general.native_resolve'),
+                'icon'=>'fact_check',
+                'url'=>route('banking-connectors.transactions.entry',[
+                    'company_id'=>$company,'accountId'=>$account,'entryId'=>(int)$link->id,
                 ]),
                 'permission'=>'read-banking-transactions',
-                'attributes'=>'id="banking-connectors-line-action-view-'.(int)$model->id.'"',
             ];
         }
-        $actions[]=[
-            'title'=>trans('banking-connectors::general.native_action_review_bank'),
-            'icon'=>'fact_check',
-            'url'=>route('transactions.index',[
-                'company_id'=>$company,
-                'search'=>'bank_movement:unlinked account_id:'.$account,
-            ]),
-            'permission'=>'read-banking-transactions',
-            'attributes'=>'id="banking-connectors-line-action-review-'.(int)$model->id.'"',
-        ];
         $view->with('actions',$actions);
     }
 }

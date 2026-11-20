@@ -21,6 +21,8 @@ Route::admin('banking-connectors', static function (): void {
 
 // Review of bank exceptions from the native transactions workspace.
 Route::admin('banking-connectors', static function (): void {
+    Route::get('bank-feed/accounts/{accountId}/entries/{entryId}', [ReviewController::class, 'reviewEntry'])
+        ->whereNumber('accountId')->whereNumber('entryId')->name('entry');
     Route::get('bank-feed/accounts/{accountId}', [ReviewController::class, 'reviewAccount'])
         ->whereNumber('accountId')->name('review');
 }, [

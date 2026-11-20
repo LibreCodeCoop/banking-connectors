@@ -35,6 +35,7 @@ final class ReviewPreview
         string $filter = 'pending',
         int $searchDays = 3,
         array $rules = [],
+        ?int $entryId = null,
     ): array {
         if ($companyId < 1 || $accountId < 1 || $connectionId < 1 ||
             $limit < 1 || $limit > 100 ||
@@ -43,9 +44,11 @@ final class ReviewPreview
             throw new InvalidArgumentException('invalid_review_scope');
         }
         // Preserve legacy API semantics: the default still lists unresolved items.
-        $records = $filter === 'pending'
+        $records = $entryId !== null
+            ? $this->stage->findForReview($companyId,$accountId,$connectionId,$entryId)
+            : ($filter === 'pending'
             ? $this->stage->listUnresolved($companyId,$accountId,$connectionId,$limit)
-            : $this->stage->listForReview($companyId,$accountId,$connectionId,$filter,$limit);
+            : $this->stage->listForReview($companyId,$accountId,$connectionId,$filter,$limit));
         $summary = ['suggested'=>0,'needs_review'=>0,'unmatched'=>0];
         $items = [];
         $engine = new CategoryRuleEngine();
