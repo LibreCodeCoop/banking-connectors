@@ -48,7 +48,14 @@ final class ReviewController extends Controller
         return $this->renderPage($request, (int) $accountId);
     }
 
-    private function renderPage(Request $request, ?int $accountId): View
+    public function reviewAccount(Request $request): View
+    {
+        $accountId=filter_var($request->route('accountId'), FILTER_VALIDATE_INT);
+        abort_unless($accountId!==false && $accountId>0,404);
+        return $this->renderPage($request,(int)$accountId,'review');
+    }
+
+    private function renderPage(Request $request, ?int $accountId, ?string $forcedTab=null): View
     {
         abort_unless(auth()->check(), 401);
         abort_unless(
@@ -61,7 +68,7 @@ final class ReviewController extends Controller
         // Never accept a company override from a query string.
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
         abort_unless($companyId > 0, 404);
-        $tab = (string) $request->query('tab', $accountId === null ? 'review' : 'review');
+        $tab = $forcedTab ?? (string) $request->query('tab', $accountId === null ? 'review' : 'settings');
         abort_unless(in_array($tab, ['review','settings','rules'], true), 404);
         $filter = (string) $request->query('filter', 'pending');
         abort_unless(in_array($filter, ['pending','reviewed','dismissed','all'], true), 422);
@@ -96,7 +103,7 @@ final class ReviewController extends Controller
                 'c.last_success_at', 'c.last_error_code', 'c.cursor_date',
                 'c.poll_requested_at', 'c.next_retry_at', 'c.failure_count',
                 'c.fingerprint_key_commitment', 'c.certificate_valid_to',
-                'c.credentials_checked_at',
+                'c.credentials_checked_at', 'c.native_post_enabled',
                 'a.name as account_name', 'a.currency_code',
             ]);
 
@@ -280,10 +287,9 @@ final class ReviewController extends Controller
             return response()->json(['state' => $decision['state'],
                 'idempotent' => $decision['idempotent']], 200);
         }
-        return redirect()->route('banking-connectors.account.show', [
+        return redirect()->route('banking-connectors.transactions.review', [
             'company_id' => $companyId,
             'accountId' => (int) $connection->account_id,
-            'tab' => 'review',
             'filter' => match ((string)$values['operation']) {
                 'accept' => 'reviewed',
                 'dismiss' => 'dismissed',

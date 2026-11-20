@@ -65,13 +65,31 @@ does not alter Akaunting core or claim to settle invoices automatically.
   stage: the historical labeled data are not yet sufficient to benchmark
   Rubix against the auditable local baseline or justify a larger dependency
   graph. Benchmark replacement models with holdout data before promotion.
+- **Native posting**: once separately enabled for a verified bank connection,
+  scheduled polling may call the native Akaunting `CreateTransaction` job for
+  an entirely new, settled and unambiguous movement. A unique
+  company/account/source-to-native link is committed atomically with the
+  native transaction. Replays cannot create duplicates. Pending invoices,
+  bills, existing transactions (including transfer legs), unknown counterpart
+  facts, potential internal transfers, and incomplete candidate searches
+  are held for human attention. Unclassified posted movements use a dedicated
+  income/expense **A classificar** category so Akaunting reports remain
+  consistent with its required non-null category model. No document is marked
+  paid or native reconciliation marked complete merely by import.
+- **Native transaction UI**: an Akaunting view composer augments the existing
+  Banking → Transactions index with account-scoped feed status filters and
+  correction/review actions. The original native components, totals and
+  standard list remain intact. Account integration is limited to operational
+  setup, security, polling and rules. The composer requires banking read ACL.
 - **Classifications**: a bounded, validated `bank_description` is extracted
   from the Sicoob description field. Per-company/account category rules use
   case/accent-normalized `contains`, debit/credit direction, enabled flag
   and numeric priority. Exact same-priority category conflicts return no
-  suggestion. Rules update only staging categories, and never override
-  a manually set category. Operator classification and optional native
-  category application are audited by separate append-only events.
+  suggestion. Rules are advisory for existing transactions and can provide
+  a category for a newly published entry only when native publishing is
+  independently enabled. Rules never override a manually set category.
+  Operator classification and optional category-only changes to eligible
+  existing native records are audited separately.
 - **Narrow native category edits**: an authenticated reviewer can explicitly
   request category-only change for an already reviewed, manually linked and
   non-reconciled income/expense transaction. The service verifies amount,
@@ -82,10 +100,10 @@ does not alter Akaunting core or claim to settle invoices automatically.
   UpdateTransaction job (which may modify attachments/tax relationships).
   It does not run the model's update events, so integrations depending on
   those events must use Akaunting's native edit screen instead.
-- **Accounting operations not implemented**: Bank Connectors does **not**
-  create transactions, settle invoices, mark payments as received, change
-  taxes, reconcile native bank entries or post ledger records automatically.
-  Such workflows require separate review and the native Akaunting services.
+- **Accounting operations deliberately excluded**: no automatic invoice
+  settlement, tax determination, funds transfer, bank-initiated payment or
+  write to an existing invoice/transfer; these require independently
+  verified identity, accounting facts and explicit user review.
 
 The bank is authoritative for settlement and bank movement identity;
 Akaunting remains authoritative for accounting classification, documents,
@@ -131,9 +149,12 @@ against a database administrator.
   returns the previously recorded result; reuse with different data fails.
 - Cross-company access, invalid candidates and conflicting source revisions
   are rejected before any module-owned review state changes.
-- No operation creates or settles native accounting transactions. The only
-  supported native change is a user-confirmed, audited category-only edit
-  of an eligible, currently unlocked existing transaction.
+- Native transactions may be created automatically only under the
+  **explicitly enabled per-connection posting policy**, from trusted
+  settled bank movements, through Akaunting's native CreateTransaction job.
+  Existing records and document settlement are never changed automatically.
+  A user-confirmed, audited category-only edit of an eligible unlocked
+  existing transaction remains supported.
 - The Sicoob Pix callback path is deliberately absent. Any future webhook
   must verify provider identity/replay, treating callbacks as hints until
   independently confirmed by bank API.
@@ -157,9 +178,13 @@ API: `GET /api/v1/banking-connectors/connections`,
 `POST /api/v1/banking-connectors/review-decisions`. API callers supply an Akaunting
 company context through the native API contract.
 
-There are no public scheduler routes, financial posting endpoints, webhook
-handlers or credential provisioning endpoints. Server-side read-only commands
-are `banking-connectors:poll` and `banking-connectors:poll-all`. Credential files
+There are no public scheduler routes, bank-side payment routes, webhook
+handlers or credential provisioning endpoints. Admins may explicitly
+toggle per-connection native publishing with a CSRF-protected endpoint.
+The server-side commands are `banking-connectors:poll`,
+`banking-connectors:poll-all` and `banking-connectors:publish`.
+All bank transport remains read-only; only a verified, approved
+Akaunting-side posting policy may create native income/expense records. Credential files
 are resolved only from a validated company/account reference; an account
 number mismatch aborts before any bank request.
 
@@ -177,7 +202,11 @@ MySQL worker-crash replay, additive migration upgrade and full backup/restore
 have been executed successfully on synthetic local fixtures. Production still
 requires verifying the actual Vault mapping, Sicoob-side certificate acceptance,
 rate limits, outages, alerting, operational rollback and retention rules.
-Native financial writes are out of scope until independently approved.
+Native financial publication is disabled for each installed connection until
+authorized, and production enabling requires independent review of unmatched
+historical movements and recovery/rollback readiness. Source-to-native IDs,
+issue states and audit records survive module rollback. The bank transport
+remains read-only.
 
 ## Pix R$1 experiment
 

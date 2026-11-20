@@ -59,7 +59,7 @@ docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
     -w /app php:8.4-cli sh -c '
 set -e
 for file in $(find Application Console Connectors Contracts Database Domain Http Infrastructure Jobs Providers Resources Routes tests examples -type f -name "*.php" | sort); do php -l "$file" >/dev/null; done
-for test in contract provider sicoob-http-client sicoob-retry-policy bank-connector-plugin scoped-credentials mtls-certificate-verifier health-snapshot native-mapper staging-sqlite read-only-sync-sqlite review-decision-sqlite category-workflow-sqlite category-learning-sqlite connection-control-sqlite; do
+for test in contract provider sicoob-http-client sicoob-retry-policy bank-connector-plugin scoped-credentials mtls-certificate-verifier health-snapshot native-mapper staging-sqlite read-only-sync-sqlite review-decision-sqlite category-workflow-sqlite category-learning-sqlite connection-control-sqlite native-posting-decision; do
     php "tests/$test.php" >/dev/null
     echo "PASS $test"
 done
@@ -86,7 +86,7 @@ echo '== Shared CredentialVault with native Laravel Crypt and MySQL =='
 docker exec -e CREDENTIAL_VAULT_ISOLATED_LOCAL=yes "$PHP_CONTAINER"   php modules/CredentialVault/tests/localhost-encrypted-profile.php
 
 echo '== Installed Akaunting domain and Blade =='
-for test in local-akaunting-integration local-readonly-sync local-view-render local-queued-poll local-queued-positive; do
+for test in local-akaunting-integration local-readonly-sync local-view-render local-queued-poll local-queued-positive local-native-publication; do
     docker exec -e BANKING_CONNECTORS_ISOLATED_LOCAL=yes -e BANKING_CONNECTORS_APP_ROOT=/var/www/html \
         "$PHP_CONTAINER" php -d session.upload_progress.enabled=0 \
         "modules/BankingConnectors/tests/$test.php" >/dev/null
@@ -118,6 +118,7 @@ BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-conn
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-account-navigation.py"
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-classification.py"
 BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-learning.py"
+BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-native-transactions.py"
 if [[ -f "$BASE/app-root/modules/BankConnectorExample/module.json" ]]; then
     BANKING_CONNECTORS_LOCAL_FIXTURE_DIR="$BASE" python3 "$ROOT/tests/localhost-external-connector.py"
     echo 'PASS optional independently installed bank connector E2E'

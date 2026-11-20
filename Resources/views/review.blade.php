@@ -2,11 +2,16 @@
     <x-slot name="title">{{ trans('banking-connectors::general.name') }}</x-slot>
     <x-slot name="content">
         @php
-            $routeName = $accountContext !== null ? 'banking-connectors.account.show' : 'banking-connectors.review.index';
             $baseParams = $accountContext !== null
                 ? ['company_id' => company_id(), 'accountId' => $accountContext->id]
                 : ['company_id' => company_id()];
-            $panelUrl = fn ($panel, $query = []) => route($routeName, array_merge($baseParams, ['tab' => $panel], $query));
+            $panelUrl = function ($panel, $query = []) use ($accountContext, $baseParams) {
+                $routeName = $panel === 'review' && $accountContext !== null
+                    ? 'banking-connectors.transactions.review'
+                    : ($accountContext !== null ? 'banking-connectors.account.show' : 'banking-connectors.review.index');
+                $tab = $panel === 'review' && $accountContext !== null ? [] : ['tab' => $panel];
+                return route($routeName, array_merge($baseParams, $tab, $query));
+            };
         @endphp
         <x-index.container>
             <div class="max-w-6xl mx-auto space-y-6">
@@ -14,9 +19,13 @@
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div>
                             @if ($accountContext !== null)
-                                <a href="{{ route('accounts.show', $accountContext->id) }}"
+                                <a href="{{ $tab==='review'
+                                       ? route('transactions.index',['company_id'=>company_id(),'bank_feed'=>'needs_action'])
+                                       : route('accounts.show', $accountContext->id) }}"
                                    class="text-sm text-purple hover:underline" id="banking-connectors-back-to-account">
-                                    &larr; {{ trans('banking-connectors::general.back_to_account') }}
+                                    &larr; {{ $tab==='review'
+                                        ? trans('banking-connectors::general.back_to_transactions')
+                                        : trans('banking-connectors::general.back_to_account') }}
                                 </a>
                             @endif
                             <h1 class="text-2xl font-semibold text-black mt-2">{{ trans('banking-connectors::general.name') }}</h1>
@@ -177,6 +186,45 @@
                                     </button>
                                 </form>
                             @endif
+                            @if ($canRequest && in_array($selected->state,['read_only','enabled'],true))
+                                <form method="POST" class="mt-5 flex flex-wrap items-end gap-3 border rounded-lg p-4"
+                                      action="{{ route('banking-connectors.connections.request',['company_id'=>company_id(),'connectionId'=>$selected->id]) }}">
+                                    @csrf
+                                    <input type="hidden" name="request_key" value="{{ bin2hex(random_bytes(16)) }}">
+                                    <label class="text-sm">
+                                        {{ trans('banking-connectors::general.start_date') }}
+                                        <input type="date" name="start_date" max="{{ now()->format('Y-m-d') }}"
+                                            class="border rounded-lg px-3 py-2 block mt-1">
+                                    </label>
+                                    <button type="submit" class="bg-purple text-white rounded-lg px-4 py-2"
+                                            {{ $selected->poll_requested_at ? 'disabled' : '' }}>
+                                        {{ trans('banking-connectors::general.sync_now') }}
+                                    </button>
+                                </form>
+                            @endif
+                            @if ($canRequest)
+                                @can('create-banking-transactions')
+                                    <form method="POST"
+                                          action="{{ route('banking-connectors.connections.native-publishing',[
+                                              'company_id'=>company_id(),'connectionId'=>$selected->id
+                                          ]) }}" class="mt-5 border rounded-lg p-4 space-y-3">
+                                        @csrf
+                                        <h3 class="font-semibold">{{ trans('banking-connectors::general.native_post_title') }}</h3>
+                                        <p class="text-sm">{{ trans('banking-connectors::general.native_post_warning') }}</p>
+                                        <p class="text-sm">
+                                            {{ (int)$selected->native_post_enabled===1
+                                                ? trans('banking-connectors::general.native_post_on')
+                                                : trans('banking-connectors::general.native_post_off') }}
+                                        </p>
+                                        <input type="hidden" name="enabled" value="{{ (int)$selected->native_post_enabled===1?'0':'1' }}">
+                                        <button type="submit" class="border rounded-lg px-4 py-2 text-purple">
+                                            {{ (int)$selected->native_post_enabled===1
+                                                ? trans('banking-connectors::general.native_post_disable')
+                                                : trans('banking-connectors::general.native_post_enable') }}
+                                        </button>
+                                    </form>
+                                @endcan
+                            @endif
                             <p class="mt-5 p-4 bg-blue-50 rounded-lg text-sm text-blue-900">
                                 {{ trans('banking-connectors::general.credentials_external') }}
                             </p>
@@ -295,22 +343,7 @@
                                 </h2>
                                 <p class="text-sm text-gray-600 mt-1">{{ trans('banking-connectors::general.review_intro') }}</p>
                             </div>
-                            @if ($selected && $canRequest && in_array($selected->state,['read_only','enabled'],true))
-                                <form method="POST" class="flex flex-wrap items-end gap-2"
-                                      action="{{ route('banking-connectors.connections.request',['company_id'=>company_id(),'connectionId'=>$selected->id]) }}">
-                                    @csrf
-                                    <input type="hidden" name="request_key" value="{{ bin2hex(random_bytes(16)) }}">
-                                    <label class="text-xs">
-                                        {{ trans('banking-connectors::general.start_date') }}
-                                        <input class="border rounded-lg px-3 py-2 block mt-1" type="date" name="start_date"
-                                               max="{{ now()->format('Y-m-d') }}">
-                                    </label>
-                                    <button type="submit" class="rounded-lg bg-purple text-white px-4 py-2 text-sm"
-                                            {{ $selected->poll_requested_at ? 'disabled' : '' }}>
-                                        {{ trans('banking-connectors::general.sync_now') }}
-                                    </button>
-                                </form>
-                            @endif
+
                         </div>
 
                         @if ($selected === null)
@@ -503,8 +536,8 @@
                                                         {{ trans('banking-connectors::general.no_native_candidate') }}
                                                     </p>
                                                     <a class="inline-block text-sm text-purple hover:underline mt-2"
-                                                       href="{{ route('transactions.create',['type'=>$row['direction']==='credit'?'income':'expense']) }}">
-                                                        {{ trans('banking-connectors::general.create_native_transaction') }} &rarr;
+                                                       href="{{ $panelUrl('settings') }}">
+                                                        {{ trans('banking-connectors::general.tab_settings') }} &rarr;
                                                     </a>
                                                 @endif
                                             @elseif ($row['stage_state'] === 'conflict')

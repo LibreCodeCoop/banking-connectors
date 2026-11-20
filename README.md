@@ -29,9 +29,15 @@ independent of Akaunting's proprietary Bank Feeds app.
   a company-scoped worker immediately; a one-minute opt-in scheduler processes
   stranded manual requests, while normal automatic polling remains 15-minute.
   Neither HTTP controllers nor webhook diagnostics directly contact the bank.
-- Three account-scoped Web sections: **Movements and review**, **Configure integration**
-  (non-secret provider, certificate health and read-only synchronization), and
-  **Categorization rules** (separate income and expense category selectors).
+- Akaunting **Banking → Transactions** is the operational work queue with
+  filters for imported movements, unmatched, uncategorized, conflicts and
+  other pending actions. All movements remain visible even when not yet
+  published to the native financial ledger.
+- **Banking → Accounts → Bank integration** handles only connection setup,
+  provider/certificate health, scheduled reads, **Synchronize now**, category
+  rules and the separately authorized native publishing policy.
+- Account-scoped review is reachable directly from native transactions;
+  legacy account/review routes are preserved for existing links.
 - Bank descriptions are normalized, bounded and stored only as a whitelisted
   field. Rules propose company/account-specific categories by movement direction,
   bank description and priority; competing equal-priority categories fail closed.
@@ -48,8 +54,20 @@ independent of Akaunting's proprietary Bank Feeds app.
   complete name from an active company contact appears literally in the bank
   description. A match in free text is not verified payer identity or an
   invoice settlement. The app never sends bank statements to external AI.
-- Explicit, idempotent match/dismiss/reopen actions modify only Banking
-  Connectors metadata, not invoice settlement or transaction creation.
+- Explicit, idempotent match/dismiss/reopen actions maintain audit metadata
+  without falsely confirming a document payment.
+- Optional **native financial publication** invokes Akaunting's
+  `CreateTransaction` service inside a source-bound, idempotent database
+  transaction. An authorized company administrator opts in per bank connection
+  after credentials are validated; existing installations default to **off**.
+  Proven existing native transactions, potential outstanding invoices/bills,
+  transfers and conflicting/ambiguous evidence are held for review instead
+  of created again. An absent category uses dedicated **A classificar**
+  income/expense categories; the native transaction appears in the built-in
+  ledger and the bank-feed filter.
+- Publication status, fixed safe issue codes, audit binding and per-entry
+  retry evidence remain in module-owned tables. The bank API itself is still
+  read-only: publishing to Akaunting never permits money movement at Sicoob.
 - A **separate, expressly confirmed option** can change only `category_id`
   on an existing, manually linked, non-reconciled native Akaunting transaction.
   It rechecks company/account, financial facts, existing category, document
@@ -71,16 +89,20 @@ delivery and synthetic certificate rotation have passed in an isolated
 environment. OpenBao provisioning is deployment-dependent and must not be
 assumed to be active at every installation.
 
-The category rules run on imported statements, not directly on Akaunting
-financial transactions. No system may automatically settle invoices, import
-native expenses, infer a tax code, or rewrite already reconciled financial
-records on the strength of a rule or a bank webhook. Manual native category
-changes require explicit confirmation and a verified existing link.
+Classification rules may select a category for a *new* natively published
+transaction, but can never infer a tax code, link a document or settle an
+invoice. The module never auto-reconciles native records, triggers bank
+payments or changes already reconciled financial facts. Manual category
+changes on existing native transactions require explicit confirmation and
+a verified source link. Bank transfers requiring paired legs remain in
+the exception workflow; an unverified bank description is not enough
+to book a transfer or decide its destination account.
 Production deployments must validate their own backup/restore, accountant
 policy, bank rate limits, secret delivery, permissions, monitoring and rollout;
 the tests here do not by themselves prove readiness for every installation.
 
 Git deployment: [docs/GIT_DEPLOY.md](docs/GIT_DEPLOY.md) ·
+Native bank feed: [docs/NATIVE_BANK_FEED.md](docs/NATIVE_BANK_FEED.md) ·
 Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 Extending banks: [docs/CONNECTORS.md](docs/CONNECTORS.md) ·
 Feature comparison: [docs/PARITY.md](docs/PARITY.md) ·
@@ -109,6 +131,7 @@ php tests/read-only-sync-sqlite.php
 php tests/connection-control-sqlite.php
 php tests/review-decision-sqlite.php
 php tests/category-workflow-sqlite.php
+php tests/native-posting-decision.php
 ```
 
 See the testing guide for disposable Docker/MariaDB and full localhost
