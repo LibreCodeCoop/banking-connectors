@@ -55,7 +55,15 @@ final class ReviewController extends Controller
         return $this->renderPage($request,(int)$accountId,'review');
     }
 
-    private function renderPage(Request $request, ?int $accountId, ?string $forcedTab=null): View
+    public function reviewEntry(Request $request): View
+    {
+        $accountId=filter_var($request->route('accountId'), FILTER_VALIDATE_INT);
+        $entryId=filter_var($request->route('entryId'), FILTER_VALIDATE_INT);
+        abort_unless($accountId!==false && $accountId>0 && $entryId!==false && $entryId>0,404);
+        return $this->renderPage($request,(int)$accountId,'review',(int)$entryId);
+    }
+
+    private function renderPage(Request $request, ?int $accountId, ?string $forcedTab=null, ?int $entryId=null): View
     {
         abort_unless(auth()->check(), 401);
         abort_unless(
@@ -151,8 +159,9 @@ final class ReviewController extends Controller
         if ($selected !== null) {
             $account = (int)$selected->account_id;
             $report = $this->preview->forConnection(
-                $companyId, $account, (int)$selected->id, 50, $filter, (int)$searchDays, $rules
+                $companyId, $account, (int)$selected->id, 50, $filter, (int)$searchDays, $rules, $entryId
             );
+            if ($entryId !== null) abort_unless(count($report['items'])===1,404);
             $rawCounts = DB::table('lcc_banking_connectors_entries')
                 ->where('company_id',$companyId)->where('account_id',$account)
                 ->where('connection_id',(int)$selected->id)
@@ -209,6 +218,7 @@ final class ReviewController extends Controller
         }
 
         return view('banking-connectors::review', [
+            'singleEntryId' => $entryId,
             'accountContext' => $accountContext,
             'tab' => $tab,
             'filter' => $filter,
@@ -286,6 +296,13 @@ final class ReviewController extends Controller
         if ($request->expectsJson()) {
             return response()->json(['state' => $decision['state'],
                 'idempotent' => $decision['idempotent']], 200);
+        }
+        $returnEntry=filter_var($request->input('return_entry_id'),FILTER_VALIDATE_INT);
+        if ($returnEntry !== false && $returnEntry > 0 && $returnEntry === (int)$values['entry_id']) {
+            return redirect()->route('banking-connectors.transactions.entry', [
+                'company_id'=>$companyId,'accountId'=>(int)$connection->account_id,
+                'entryId'=>$returnEntry,
+            ])->with('success',trans('banking-connectors::general.review_saved'));
         }
         return redirect()->route('banking-connectors.transactions.review', [
             'company_id' => $companyId,

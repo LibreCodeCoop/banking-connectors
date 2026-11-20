@@ -62,6 +62,7 @@ return [
     'native_status_uncategorized' => 'To categorize',
     'native_status_matched' => 'Linked to native record',
     'native_status_unlinked' => 'Unmatched',
+    'single_entry_title' => 'Review bank movement',
     'native_resolve' => 'Review / correct',
     'native_no_movements' => 'No bank movements match this filter.',
     'back_to_transactions' => 'Back to transactions',

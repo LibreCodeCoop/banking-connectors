@@ -298,6 +298,27 @@ final class PdoEntryStage
         return $q->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /** Fetch exactly one staged entry after verifying connection and tenant ownership. */
+    public function findForReview(int $company, int $account, int $connection, int $entry): array
+    {
+        if ($entry < 1) throw new InvalidArgumentException('invalid_entry_id');
+        $this->assertConnection($connection, $company, $account, null, false);
+        $q = $this->db->prepare(
+            "SELECT id,provider,movement_date,direction,amount_cents,currency,
+                    bank_description,category_id,category_source,category_rule_id,
+                    state,linked_transaction_id,conflict_count,first_seen_at,last_seen_at
+             FROM {$this->entriesTable}
+             WHERE id=:entry AND company_id=:company AND account_id=:account
+               AND connection_id=:connection LIMIT 1"
+        );
+        foreach ([':entry'=>$entry,':company'=>$company,':account'=>$account,':connection'=>$connection] as $key=>$value) {
+            $q->bindValue($key,$value,PDO::PARAM_INT);
+        }
+        $q->execute();
+        $row=$q->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? [$row] : [];
+    }
+
     private function activeRules(int $company, int $account): array
     {
         $rules = preg_replace('/lcc_banking_connectors_connections$/', 'lcc_banking_connectors_category_rules', $this->connectionsTable);

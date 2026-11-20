@@ -28,7 +28,7 @@
                                         : trans('banking-connectors::general.back_to_account') }}
                                 </a>
                             @endif
-                            <h1 class="text-2xl font-semibold text-black mt-2">{{ trans('banking-connectors::general.name') }}</h1>
+                            <h1 class="text-2xl font-semibold text-black mt-2">{{ $singleEntryId !== null ? trans('banking-connectors::general.single_entry_title') : trans('banking-connectors::general.name') }}</h1>
                             @if ($accountContext !== null)
                                 <p class="mt-1 text-base font-medium text-gray-700" id="banking-connectors-account-context">
                                     {{ trans('banking-connectors::general.account_context', ['account' => $accountContext->name]) }}
@@ -48,6 +48,7 @@
                             </div>
                         @endif
                     </div>
+                    @if($singleEntryId === null)
                     <nav class="flex flex-wrap gap-2 mt-6 border-t pt-4" aria-label="{{ trans('banking-connectors::general.navigation_label') }}">
                         <a href="{{ $panelUrl('review') }}"
                            id="banking-connectors-tab-review" @if($tab === 'review') aria-current="page" @endif
@@ -66,6 +67,7 @@
                             {{ trans('banking-connectors::general.tab_rules') }}
                         </a>
                     </nav>
+                    @endif
                 </header>
 
                 @if (session('success'))
@@ -367,6 +369,7 @@
                                 @endforeach
                             </div>
                             @endif
+                            @if($singleEntryId === null)
                             <nav class="mt-5 flex flex-wrap gap-2" aria-label="{{ trans('banking-connectors::general.review_filter') }}">
                                 @foreach (['pending','reviewed','dismissed','all'] as $state)
                                     <a href="{{ $panelUrl('review',['filter'=>$state,'search_days'=>$searchDays]) }}"
@@ -397,6 +400,7 @@
                                     {{ trans('banking-connectors::general.find_transactions') }}
                                 </button>
                             </form>
+                            @endif
                             @forelse ($items as $row)
                                 @php
                                     $rowCategories = $categories->where('type',$row['direction']==='credit'?'income':'expense');
@@ -463,6 +467,7 @@
                                                     @csrf
                                                     <input type="hidden" name="request_key" value="{{ bin2hex(random_bytes(16)) }}">
                                                     <input type="hidden" name="return_filter" value="{{ $filter }}">
+                                                    @if($singleEntryId !== null)<input type="hidden" name="return_entry_id" value="{{ $singleEntryId }}">@endif
                                                     <input type="hidden" name="expected_native_category_id" value="{{ $row['native_category_id'] ?? '' }}">
                                                     <label class="text-xs block">
                                                         <span class="block mb-1">{{ trans('banking-connectors::general.select_category') }}</span>
@@ -507,6 +512,7 @@
                                                 @if ($row['candidate_details'] !== [])
                                                     <form method="POST" class="mt-2 space-y-3"
                                                           action="{{ route('banking-connectors.review.decide',['company_id'=>company_id()]) }}">
+                                                        @if($singleEntryId !== null)<input type="hidden" name="return_entry_id" value="{{ $singleEntryId }}">@endif
                                                         @csrf
                                                         <input type="hidden" name="connection_id" value="{{ $selected->id }}">
                                                         <input type="hidden" name="entry_id" value="{{ $row['id'] }}">
@@ -547,6 +553,7 @@
                                             @endif
                                             @if ($canReview && in_array($row['stage_state'],['reviewed','dismissed','pending'],true))
                                                 <form method="POST" class="mt-4" action="{{ route('banking-connectors.review.decide',['company_id'=>company_id()]) }}">
+                                                        @if($singleEntryId !== null)<input type="hidden" name="return_entry_id" value="{{ $singleEntryId }}">@endif
                                                     @csrf
                                                     <input type="hidden" name="connection_id" value="{{ $selected->id }}">
                                                     <input type="hidden" name="entry_id" value="{{ $row['id'] }}">

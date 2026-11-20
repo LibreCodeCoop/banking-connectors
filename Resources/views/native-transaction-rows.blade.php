@@ -117,10 +117,9 @@
                                 : ($item->native_transaction_id!==null?'matched'
                                 : ($item->category_id===null?'uncategorized':'unlinked'))));
                         $bankActions=\Modules\BankingConnectors\Http\ViewComposers\NativeTransactionActions::bankActions($item);
-                        $bankEntryUrl=route('transactions.index',[
+                        $bankEntryUrl=route('banking-connectors.transactions.entry',[
                             'company_id'=>company_id(),
-                            'search'=>'bank_movement:imported account_id:'.$item->account_id,
-                            'bank_entry_id'=>$item->id,
+                            'accountId'=>$item->account_id,'entryId'=>$item->id,
                         ]);
                     }
                 @endphp

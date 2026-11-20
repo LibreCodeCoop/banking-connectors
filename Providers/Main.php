@@ -114,6 +114,7 @@ final class Main extends ServiceProvider
         // Only the Transactions route is augmented; the original ledger and
         // all other Akaunting components remain unaffected.
         View::composer('components.transactions.index.content', NativeTransactionsIndex::class);
+        View::composer('components.transactions.index.buttons',\Modules\BankingConnectors\Http\ViewComposers\NativeTransactionButtons::class);
         View::composer('components.transactions.index.transaction',
             NativeTransactionActions::class . '@prepare');
         View::composer('components.table.actions',
