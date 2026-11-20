@@ -101,7 +101,8 @@
         <x-table.tbody>
             @foreach($transactions as $item)
                 @php
-                    $isBankSource=$bankFeedRendering??false;
+                    $isBankSource=($bankFeedRendering??false)===true ||
+                        (($bankFeedRendering??null)==='mixed' && !($item instanceof \App\Models\Banking\Transaction));
                     $bankStatus=null;
                     $bankActions=[];
                     $bankEntryUrl=null;
