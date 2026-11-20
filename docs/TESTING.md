@@ -206,3 +206,19 @@ Akaunting domain test have passed; activation with real historical data still
 requires a reviewed dry-run, tenant-isolated database backup, scoped financial
 authorization and an operational rollback plan.
 MCP route discovery alone does not prove the MCP is functional.
+
+### Combined native and bank-source list
+
+The synthetic-only HTTP test `tests/localhost-combined-transactions.py` verifies
+that unlinked bank movements appear in the native All Transactions table,
+respect source-compatible filters, sort with native transactions, and paginate
+without duplicates. A separate manual synthetic fixture check confirmed that
+a source item already linked to a native transaction is omitted as a duplicate
+and the native row retains the link badge. Never use live company data for
+these tests.
+
+The existing offline `tests/contract.php` now covers exact provider document
+number evidence: amount/account/date must still match, ambiguous references
+are withheld, and a foreign-company candidate cannot supply corroboration.
+`tests/category-learning-sqlite.php` covers verified counterparty names from
+provider metadata, with native contact ACL and tenant isolation enforced.

@@ -110,8 +110,6 @@
                         bulk-action="{{ $bulkActionClass }}"
                         route="{{ $searchRoute }}"
 
-                        search-string="App\Models\Banking\Transaction"
-                        bulk-action="App\BulkActions\Banking\Transactions"
                     />
                 @elseif ((! $hideSearchString) && $hideBulkAction)
                     <x-index.search

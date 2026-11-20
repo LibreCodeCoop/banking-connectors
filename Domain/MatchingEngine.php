@@ -108,6 +108,7 @@ final class MatchingEngine
             throw new InvalidArgumentException('invalid_date_tolerance');
         }
         $candidateIds = [];
+        $eligibleReferences = [];
         foreach ($existing as $row) {
             if (!is_array($row) || !isset($row['id'], $row['company_id'], $row['account_id']) ||
                 (int) $row['company_id'] !== $bank->companyId ||
@@ -129,10 +130,27 @@ final class MatchingEngine
             }
             if ((int) $date->diff(new DateTimeImmutable($bank->date))->format('%a') <= $maxDays) {
                 $candidateIds[] = (int) $id;
+                $eligibleReferences[(int)$id] = $row['reference']??null;
             }
         }
         $candidateIds = array_values(array_unique($candidateIds));
         sort($candidateIds);
+        // Reference alone proves nothing. Prefer it only after the company,
+        // account, sign, currency, amount and date checks above succeeded.
+        // A reused reference never authorizes automatic posting or matching.
+        $document=$bank->details['document_number']??null;
+        if (is_string($document) && preg_match('/^[A-Za-z0-9._\/-]{6,64}$/D',$document)) {
+            $matched=[];
+            foreach ($eligibleReferences as $id=>$reference) {
+                if (is_string($reference) && hash_equals($document,trim($reference))) {
+                    $matched[]=(int)$id;
+                }
+            }
+            $matched=array_values(array_unique($matched));
+            if (count($matched)===1) {
+                return self::decision('suggested','exact_document_reference_and_financial_facts',$matched);
+            }
+        }
         return match (count($candidateIds)) {
             0 => self::decision('unmatched', 'no_candidate'),
             1 => self::decision('suggested', 'same_amount_direction_account_near_date', $candidateIds),

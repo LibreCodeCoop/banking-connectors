@@ -36,7 +36,7 @@ $db->exec("CREATE TABLE transactions (
     account_id INTEGER NOT NULL, paid_at DATETIME NOT NULL,
     type VARCHAR(24) NOT NULL, amount NUMERIC NOT NULL,
     currency_code VARCHAR(3) NOT NULL, parent_id INTEGER NOT NULL DEFAULT 0,
-    split_id INTEGER NULL, deleted_at DATETIME NULL
+    split_id INTEGER NULL, reference VARCHAR(255) NULL, deleted_at DATETIME NULL
 )");
 $stmt = $db->prepare('INSERT INTO transactions
     (id,company_id,account_id,paid_at,type,amount,currency_code)

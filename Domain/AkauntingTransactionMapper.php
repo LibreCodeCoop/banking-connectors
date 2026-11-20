@@ -68,6 +68,7 @@ final class AkauntingTransactionMapper
             'date' => $date,
             'currency' => $currency,
             'amount_cents' => $amountCents,
+            'reference' => is_string($row['reference']??null) ? $row['reference'] : null,
             'banking_connectors_fingerprint' => $row['banking_connectors_fingerprint'] ?? null,
         ];
     }

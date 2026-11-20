@@ -36,6 +36,13 @@ final class NativeTransactionActions
             $view->setPath(__DIR__.'/../../Resources/views/native-transaction-rows.blade.php');
             return;
         }
+        $mixed=request()->attributes->get('banking_connectors.mixed_rows');
+        if ($mixed instanceof \Illuminate\Pagination\LengthAwarePaginator) {
+            $view->with('transactions',$mixed);
+            $view->with('hideBulkAction',true);
+            $view->with('bankFeedRendering','mixed');
+            $view->setPath(__DIR__.'/../../Resources/views/native-transaction-rows.blade.php');
+        }
         $transactions=$view->getData()['transactions']??null;
         if (!is_iterable($transactions)) return;
         $company=(int)company_id();
@@ -84,7 +91,7 @@ final class NativeTransactionActions
         ]);
         $view->with('bankingNativeLinked',$links);
         $view->with('bankingNativeConnected',$connected);
-        $view->with('bankFeedRendering',false);
+        $view->with('bankFeedRendering', $mixed instanceof \Illuminate\Pagination\LengthAwarePaginator ? 'mixed' : false);
         $view->setPath(__DIR__.'/../../Resources/views/native-transaction-rows.blade.php');
     }
 

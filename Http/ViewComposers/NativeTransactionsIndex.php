@@ -6,6 +6,8 @@ declare(strict_types=1);
 namespace Modules\BankingConnectors\Http\ViewComposers;
 
 use DateTimeImmutable;
+use App\Models\Banking\Transaction;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +39,19 @@ final class NativeTransactionsIndex
         }
         $account=NativeBankSearch::accountFilter();
         $rows=collect();
+        // All Transactions is a display union, never a ledger union. A bank
+        // movement already represented by a native transaction appears once.
+        $hasConnections=DB::table('lcc_banking_connectors_connections')
+            ->where('company_id',(int)company_id())->exists();
+        $all=!$active && $hasConnections && in_array(($view->getData()['tabActive']??null),[
+            'transactions-all','transactions-income','transactions-expense',
+        ],true);
+        if ($all) {
+            $mixed=$this->combinedRows((int)company_id());
+            if ($mixed!==null) {
+                request()->attributes->set('banking_connectors.mixed_rows',$mixed);
+            }
+        }
         if ($active) {
             $company=(int)company_id();
             $query=$this->filter($this->query($company,$account),$filter);
@@ -82,8 +97,7 @@ final class NativeTransactionsIndex
         }
 
         $view->with([
-            'bankFeedHasConnections'=>DB::table('lcc_banking_connectors_connections')
-                ->where('company_id',(int)company_id())->exists(),
+            'bankFeedHasConnections'=>$hasConnections,
             'bankFeedActive'=>$active,
             'bankFeedFilter'=>$filter,
             'bankFeedAccount'=>$account,
@@ -92,6 +106,138 @@ final class NativeTransactionsIndex
                 auth()->user()->can('update-banking-accounts'),
         ]);
         $view->setPath(__DIR__.'/../../Resources/views/native-transactions-content.blade.php');
+    }
+
+    /**
+     * Combine native financial rows with still-unlinked statement movements
+     * using a SQL UNION that paginates the combined set exactly once.
+     * No shadow native transactions or cross-company records are created.
+     */
+    private function combinedRows(int $company): LengthAwarePaginator
+    {
+        $limit=max(1,min(100,(int)list_limit()));
+        $page=filter_var(request()->query('page',1),FILTER_VALIDATE_INT,
+            ['options'=>['min_range'=>1]]);
+        if ($page===false) abort(422);
+        $name=request()->query('sort','paid_at');
+        $sort=is_string($name)?$name:'paid_at';
+        $direction=request()->query('order',request()->query('direction','desc'));
+        $order=is_string($direction)&&strtolower($direction)==='asc'?'asc':'desc';
+        $prefix=DB::connection()->getTablePrefix();
+        if (!preg_match('/^[A-Za-z0-9_]*$/D',$prefix)) {
+            throw new \LogicException('invalid_db_prefix');
+        }
+        $table=$prefix.'transactions';
+        $native=Transaction::query()->where('transactions.company_id',$company)
+            ->usingSearchString();
+        $bank=$this->query($company,NativeBankSearch::accountFilter())
+            ->whereNull('t.id');
+        if (!$this->applyCompatibleAllFilters($bank)) $bank->whereRaw('1=0');
+        $sortNative=match($sort) {
+            'paid_at'=>"DATE({$table}.paid_at)",
+            'amount'=>"ROUND({$table}.amount*100,0)",
+            'number'=>"{$table}.number",
+            'type'=>"{$table}.type",
+            'account.name'=>$prefix.'sort_account.name',
+            'category.name'=>$prefix.'sort_category.name',
+            'contact.name'=>$prefix.'sort_contact.name',
+            'document.document_number'=>$prefix.'sort_document.document_number',
+            default=>"DATE({$table}.paid_at)",
+        };
+        $sortBank=match($sort) {
+            'paid_at'=>$prefix.'e.movement_date',
+            'amount'=>$prefix.'e.amount_cents',
+            'number'=>'CAST('.$prefix.'e.id AS CHAR)',
+            'type'=>"CASE WHEN {$prefix}e.direction='credit' THEN 'income' ELSE 'expense' END",
+            'account.name'=>$prefix.'a.name',
+            'category.name'=>'COALESCE('.$prefix.'bcat.name,'.$prefix.'ncat.name)',
+            'contact.name'=>$prefix.'ct.name',
+            'document.document_number'=>$prefix.'d.document_number',
+            default=>$prefix.'e.movement_date',
+        };
+        if ($sort==='account.name') {
+            $native->leftJoin('accounts as sort_account',static function($join):void {
+                $join->on('sort_account.id','=','transactions.account_id')
+                    ->on('sort_account.company_id','=','transactions.company_id');
+            });
+        } elseif ($sort==='category.name') {
+            $native->leftJoin('categories as sort_category',static function($join):void {
+                $join->on('sort_category.id','=','transactions.category_id')
+                    ->on('sort_category.company_id','=','transactions.company_id');
+            });
+        } elseif ($sort==='contact.name') {
+            $native->leftJoin('contacts as sort_contact',static function($join):void {
+                $join->on('sort_contact.id','=','transactions.contact_id')
+                    ->on('sort_contact.company_id','=','transactions.company_id');
+            });
+        } elseif ($sort==='document.document_number') {
+            $native->leftJoin('documents as sort_document',static function($join):void {
+                $join->on('sort_document.id','=','transactions.document_id')
+                    ->on('sort_document.company_id','=','transactions.company_id');
+            });
+        }
+        $native->selectRaw("'native' AS source_type, {$table}.id AS source_id, {$sortNative} AS sort_value");
+        $bank->selectRaw("'bank' AS source_type, {$prefix}e.id AS source_id, {$sortBank} AS sort_value");
+        $feed=DB::query()->fromSub($native->toBase()->unionAll($bank),'banking_all_rows')
+            ->orderBy('sort_value',$order)
+            ->orderBy('source_type','asc')
+            ->orderBy('source_id',$order)
+            ->paginate($limit,['*'],'page',$page)
+            ->appends(request()->only('search','sort','order','direction','list_records','limit'));
+        $nativeIds=[];$bankIds=[];
+        foreach ($feed->items() as $row) {
+            if ($row->source_type==='native') $nativeIds[]=(int)$row->source_id;
+            elseif ($row->source_type==='bank') $bankIds[]=(int)$row->source_id;
+        }
+        $nativeRows=$nativeIds===[]?collect():Transaction::with(
+            'account','category','contact','taxes','document',
+            'document.items','document.last_history','recurring'
+        )->where('company_id',$company)->whereIn('id',$nativeIds)->get()->keyBy('id');
+        $bankRows=$bankIds===[]?collect():$this->query($company,null)
+            ->whereNull('t.id')->whereIn('e.id',$bankIds)->select([
+                'e.id','e.account_id','e.connection_id','e.company_id',
+                'e.bank_description','e.amount_cents','e.currency','e.direction',
+                'e.movement_date','e.state','e.category_id','e.category_source',
+                'e.linked_transaction_id','e.publication_issue_code',
+                'e.publication_failures','a.name as account_name',
+                'p.outcome as publication_outcome',
+                'bcat.name as source_category_name',
+                'ncat.name as native_category_name',
+                'ncat.code as native_category_code',
+                't.id as native_transaction_id',
+                't.category_id as native_category_id','t.document_id',
+                't.reconciled','t.parent_id','t.split_id',
+                't.deleted_at as native_deleted_at',
+                'ct.name as native_contact_name',
+                'd.document_number as native_document_number',
+            ])->get()->keyBy('id');
+        $ordered=collect();
+        foreach ($feed->items() as $row) {
+            $item=$row->source_type==='native'
+                ?$nativeRows->get((int)$row->source_id)
+                :$bankRows->get((int)$row->source_id);
+            if ($item!==null) $ordered->push($item);
+        }
+        $feed->setCollection($ordered);
+        return $feed;
+    }
+
+    /** Strictly reject unrepresentable native search filters for bank rows. */
+    private function applyCompatibleAllFilters(Builder $query): bool
+    {
+        $search=request()->query('search','');
+        if (!is_string($search)) return false;
+        $supported=['type','account_id','category_id','contact_id','currency_code','paid_at','amount'];
+        preg_match_all('/(?:^|\s)([a-z][a-z_]*)(?:>=|<=|>|<|:|=)(?:"[^"]*"|\S+)/i',
+            $search,$matches);
+        foreach ($matches[1] as $name) {
+            if (!in_array($name,$supported,true)) return false;
+        }
+        // Any free-text query cannot be assumed to match a bank source row.
+        $rest=preg_replace('/(?:^|\s)[a-z][a-z_]*(?:>=|<=|>|<|:|=)(?:"[^"]*"|\S+)/i','',$search);
+        if (!is_string($rest) || trim($rest)!=='') return false;
+        $this->applyNativeFilters($query);
+        return true;
     }
 
     private function query(int $company,?int $account): Builder
@@ -149,17 +295,30 @@ final class NativeTransactionsIndex
     {
         $search=request()->query('search','');
         if (!is_string($search) || $search==='') return;
-        preg_match_all('/(?:^|\s)(type|account_id|category_id|contact_id|currency_code|paid_at)(>=|<=|>|<|:|=)("[^"]*"|\S+)/',
+        preg_match_all('/(?:^|\s)(type|account_id|category_id|contact_id|currency_code|paid_at|amount)(>=|<=|>|<|:|=)("[^"]*"|\S+)/',
             $search,$matches,PREG_SET_ORDER);
         foreach ($matches as $match) {
             $column=$match[1];
             $operator=$match[2]===':'?'=':$match[2];
             $value=trim($match[3],'"\'');
             if ($column==='type') {
-                if ($operator!=='=' || !in_array($value,['income','expense'],true)) {
+                $types=explode(',',$value);
+                if ($operator!=='=' || count($types)>2 ||
+                    array_diff($types,['income','expense'])!==[]) {
                     $query->whereRaw('1=0'); continue;
                 }
-                $query->where('e.direction',$value==='income'?'credit':'debit');
+                $query->whereIn('e.direction',array_map(static fn(string $v)=>
+                    $v==='income'?'credit':'debit',$types));
+                continue;
+            }
+            if ($column==='amount') {
+                // Native Akaunting stores decimal major units; staging is
+                // integer cents. Never compare floating-point bank money.
+                if (!preg_match('/^([0-9]{1,12})(?:\.([0-9]{1,2}))?$/D',$value,$parts)) {
+                    $query->whereRaw('1=0'); continue;
+                }
+                $cents=(int)$parts[1]*100+(int)str_pad($parts[2]??'',2,'0');
+                $query->where('e.amount_cents',$operator,$cents);
                 continue;
             }
             if ($column==='paid_at') {
@@ -216,14 +375,14 @@ final class NativeTransactionsIndex
         $requested=request()->query('sort','paid_at');
         $direction=request()->query('order',request()->query('direction','desc'));
         $sorts=[
-            'paid_at'=>'e.movement_date',
+            'paid_at'=>$prefix.'e.movement_date',
             'number'=>'e.id',
             'type'=>'e.direction',
             'category.name'=>'bcat.name',
-            'account.name'=>'a.name',
-            'contact.name'=>'ct.name',
-            'document.document_number'=>'d.document_number',
-            'amount'=>'e.amount_cents',
+            'account.name'=>$prefix.'a.name',
+            'contact.name'=>$prefix.'ct.name',
+            'document.document_number'=>$prefix.'d.document_number',
+            'amount'=>$prefix.'e.amount_cents',
         ];
         $sort=is_string($requested)?($sorts[$requested]??'e.movement_date'):'e.movement_date';
         $order=is_string($direction)&&strtolower($direction)==='asc'?'asc':'desc';

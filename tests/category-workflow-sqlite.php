@@ -45,7 +45,7 @@ $db->exec("CREATE TABLE transactions (
     currency_code CHAR(3) NOT NULL,category_id INTEGER NULL,
     reconciled INTEGER NOT NULL DEFAULT 0,document_id INTEGER NULL,
     parent_id INTEGER NOT NULL DEFAULT 0,split_id INTEGER NULL,
-    deleted_at DATETIME NULL,updated_at DATETIME NULL
+    reference VARCHAR(255) NULL, deleted_at DATETIME NULL,updated_at DATETIME NULL
 )");
 $db->exec("INSERT INTO transactions
     (id,company_id,account_id,type,paid_at,amount,currency_code,category_id,reconciled)

@@ -66,6 +66,7 @@ final class ReviewPreview
                 amountCents: (int)$record['amount_cents'],
                 currency: (string)$record['currency'],
                 description: $record['bank_description'] ?? null,
+                details: self::matchingDetails($record['bank_details']??null,(string)$record['provider']),
             );
             $nearRows = [];
             $candidateDetails = [];
@@ -146,6 +147,22 @@ final class ReviewPreview
         }
         return ['items'=>$items,'summary'=>$summary];
     }
+    /** @return array<string,string> Match identifiers only; never expose raw evidence. */
+    private static function matchingDetails(mixed $serialized,string $provider): array
+    {
+        if (!is_string($serialized) || strlen($serialized)>4096) return [];
+        $fields=json_decode($serialized,true);
+        if (!is_array($fields)) return [];
+        if (isset($fields['schema_version'])) {
+            if ($fields['schema_version']!==1 || ($fields['provider']??null)!==$provider ||
+                !is_array($fields['fields']??null)) return [];
+            $fields=$fields['fields'];
+        }
+        $document=$fields['document_number']??null;
+        return is_string($document) && preg_match('/^[A-Za-z0-9._\/-]{6,64}$/D',$document)
+            ? ['document_number'=>$document] : [];
+    }
+
     /** @return array<string,array{label:string,group:string,value:string}> */
     private function describeDetails(string $provider,mixed $serialized): array
     {

@@ -60,7 +60,7 @@ final class CategoryLearningAdvisor
             array_map(static fn(array $row): array => [
                 'direction' => (string)$row['direction'],
                 'category_id' => (int)$row['category_id'],
-                'description' => (string)$row['bank_description'],
+                'description' => trim((string)$row['bank_description'].' '.self::detailEvidence($row['bank_details']??null,(string)$row['provider'])),
             ], $training),
             static fn(array $row): bool =>
                 count(TokenCategoryLearner::tokens($row['description']))
@@ -87,6 +87,7 @@ final class CategoryLearningAdvisor
         $contacts = $this->availableContacts($company, $permittedContactTypes);
         $suggestions = [];
         $counterparties = [];
+        $details=$this->detailsForItems($company,$account,$items);
 
         foreach ($items as $item) {
             $id = (int)($item['id'] ?? 0);
@@ -97,16 +98,17 @@ final class CategoryLearningAdvisor
                 continue;
             }
             if (($item['stage_state'] ?? null) === 'pending') {
+                $evidence=trim((string)$description.' '.($details[$id]??''));
                 // Never override manual classifications or explicit rules.
                 if (($item['category_source'] ?? null) === null && !$overLimit) {
-                    $suggestion = $learner->suggest($samples, $direction, $description);
+                    $suggestion = $learner->suggest($samples, $direction, $evidence);
                     if ($suggestion !== null) {
                         $suggestions[$id] = $suggestion;
                     }
                 }
                 // A unique full contact name is only a *possible* counterparty,
                 // never proof of who paid, of tax status or of invoice settlement.
-                $candidate = $this->matchCounterparty($contacts, $direction, $description);
+                $candidate = $this->matchCounterparty($contacts, $direction, $evidence);
                 if ($candidate !== null) $counterparties[$id] = $candidate;
             }
         }
@@ -118,12 +120,57 @@ final class CategoryLearningAdvisor
         ];
     }
 
+    /**
+     * Extract only approved provider labels. The model never sees raw banking
+     * JSON, document identifiers, amounts, account numbers or credentials.
+     */
+    private static function detailEvidence(mixed $serialized,string $provider): string
+    {
+        if (!is_string($serialized) || strlen($serialized)>4096) return '';
+        $decoded=json_decode($serialized,true);
+        if (!is_array($decoded)) return '';
+        if (isset($decoded['schema_version'])) {
+            if ($decoded['schema_version']!==1 ||
+                ($decoded['provider']??null)!==$provider ||
+                !is_array($decoded['fields']??null)) return '';
+            $decoded=$decoded['fields'];
+        }
+        $fragments=[];
+        foreach (['complement','payer_message','sender_name','recipient_name'] as $key) {
+            $value=$decoded[$key]??null;
+            if (!is_string($value) || strlen($value)>240 ||
+                !preg_match('//u',$value) ||
+                preg_match('/[\x00-\x1F\x7F]/',$value)) continue;
+            $fragments[]=trim($value);
+        }
+        return implode(' ',$fragments);
+    }
+
+    /** @param array<int,array<string,mixed>> $items @return array<int,string> */
+    private function detailsForItems(int $company,int $account,array $items): array
+    {
+        $ids=array_values(array_unique(array_filter(array_map(
+            static fn(array $row)=>(int)($row['id']??0),$items),
+            static fn(int $id)=>$id>0
+        )));
+        if (!$ids) return [];
+        $placeholders=implode(',',array_fill(0,count($ids),'?'));
+        $query=$this->db->prepare("SELECT id,provider,bank_details FROM {$this->entries}
+            WHERE company_id=? AND account_id=? AND id IN ({$placeholders})");
+        $query->execute(array_merge([$company,$account],$ids));
+        $result=[];
+        foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $result[(int)$row['id']]=self::detailEvidence($row['bank_details'],(string)$row['provider']);
+        }
+        return $result;
+    }
+
     /** @return list<array<string,mixed>> */
     private function labeledExamples(int $company, int $account): array
     {
         // The *last* event may erase a category. Never resuscitate older
         // labels after manual clearing or category deletion.
-        $sql = "SELECT e.id,e.direction,e.bank_description,a.new_category_id AS category_id
+        $sql = "SELECT e.id,e.provider,e.direction,e.bank_description,e.bank_details,a.new_category_id AS category_id
             FROM {$this->entries} e
             JOIN {$this->events} a ON a.id=(
                 SELECT MAX(a2.id) FROM {$this->events} a2
