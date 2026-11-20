@@ -375,14 +375,14 @@ final class NativeTransactionsIndex
         $requested=request()->query('sort','paid_at');
         $direction=request()->query('order',request()->query('direction','desc'));
         $sorts=[
-            'paid_at'=>$prefix.'e.movement_date',
+            'paid_at'=>'e.movement_date',
             'number'=>'e.id',
             'type'=>'e.direction',
             'category.name'=>'bcat.name',
-            'account.name'=>$prefix.'a.name',
-            'contact.name'=>$prefix.'ct.name',
-            'document.document_number'=>$prefix.'d.document_number',
-            'amount'=>$prefix.'e.amount_cents',
+            'account.name'=>'a.name',
+            'contact.name'=>'ct.name',
+            'document.document_number'=>'d.document_number',
+            'amount'=>'e.amount_cents',
         ];
         $sort=is_string($requested)?($sorts[$requested]??'e.movement_date'):'e.movement_date';
         $order=is_string($direction)&&strtolower($direction)==='asc'?'asc':'desc';

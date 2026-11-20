@@ -54,6 +54,12 @@ assert len(all_ids)==6, 'expected six synthetic unlinked bank movements'
 assert 'id="tab-bank-feed"' in all_rows
 assert '/banking/transactions/' in all_rows
 print('PASS all-transactions tab combines six staged bank movements with native rows')
+# Regression: the dedicated bank tab calls NativeTransactionsIndex::sort(),
+# where the previous deploy dereferenced an undefined $prefix variable.
+for value in ('imported','needs_action','unlinked'):
+    bank_page=body({'search':'bank_movement:'+value})
+    assert 'tab-bank-feed' in bank_page, 'Bank tab failed: '+value
+print('PASS dedicated bank tab renders without undefined-prefix exception')
 
 for search,expected in [
     ('type:income',4),('type:expense',2),
