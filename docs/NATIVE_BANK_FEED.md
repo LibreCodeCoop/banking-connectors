@@ -166,3 +166,49 @@ infer identities from descriptions or silently batch-scan unrelated Pix.
 The lookup verifies the E2E ID, amount and date before enriching metadata;
 accounting amounts and reconciliation links are not changed. Configuration
 and permissions are documented in `docs/CONNECTORS.md`.
+
+## Combined All Transactions view
+
+The standard Akaunting **All Transactions**, Income, and Expense tabs now
+display a server-paginated SQL union of native financial transactions and
+**unrepresented** bank-source movements. This is a display-only read surface:
+no synthetic ledger rows, invoices or account balances are created.
+
+- Native transactions keep native routes, row actions and financial totals.
+- A staged bank movement with a valid live native transaction link is **not**
+  shown twice. Unlinked movements are clearly marked as bank sources and open
+  the single-entry review screen instead of pretending to be ledger items.
+- Company/account isolation and enabled-module native ACL checks apply to both
+  sets. Native filters for date, type, account, category, contact, currency and
+  amount are translated to the bank-source predicates when meaningful. If a
+  filter refers to an unavailable bank-source field, that source side is
+  excluded rather than silently ignoring a filter.
+- SQL UNION pagination, direction and supported native sorts operate on the
+  combined result set, with distinct native and bank row identities. Bulk
+  financial actions are disabled on mixed rows to prevent acting on staging IDs.
+- Native accounting totals **do not** include unposted bank-source movements,
+  even when those movements are displayed next to ledger entries.
+
+### Classification and evidence
+
+The existing company/account-scoped Naive Bayes advisor remains abstention-
+first and requires multiple explicit human classifications. It can now learn
+from allowlisted bank statement complement, payer message and counterparty
+labels in addition to the short bank description. No third-party ML service
+receives bank data, and generic `Pix recebido`/`Pix emitido` by themselves
+remain non-discriminating. Suggested categories are not committed to the
+financial ledger without reviewer action.
+
+Exact provider document numbers can prioritize a unique native transaction
+reference when its company, account, currency, direction, amount and date
+already match. This never settles or reconciles an invoice automatically,
+and ambiguous/reused document numbers remain unconfirmed.
+
+Run isolated HTTP acceptance checks against the documented synthetic fixture:
+
+    BANKING_CONNECTORS_LOCAL_FIXTURE_DIR=.../akaunting-banksync-local \
+      python3 tests/localhost-combined-transactions.py
+
+Native Akaunting currently has a pre-existing document-number sorting defect
+in the tested version, before the module's table composer is invoked; this
+sort mode is not claimed to be fixed by the combined view.
