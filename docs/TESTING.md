@@ -130,10 +130,18 @@ categories, immutable source linking, replay idempotency,
 foreign company denial, existing native payments, transfers and a synthetic
 unpaid invoice. Every write, including the fake invoice and account, is
 rolled back before the test returns. `tests/localhost-native-transactions.py`
-logs in as a synthetic user and verifies Banking → Transactions retains
-native actions, exposes the feed filters, and separates account configuration
-from transaction-review actions. The native publisher's production flag
-defaults to off and is not enabled by the test suite.
+logs into the full synthetic Akaunting Web application and checks that the
+existing native transaction tabs, native search dropdown and financial action
+menu survive alongside the additional Bank movements tab. It parses the
+actual Vue search component's JSON filter definitions, verifies the
+`bank_status` and `bank_movement` values and native account filter,
+exercises all filters over HTTP, checks legacy links, CSRF and role denial.
+`tests/localhost-native-linked-actions.py` attaches one scoped bank-source
+event to an existing *synthetic* native transaction, then checks its linked
+marker and hover menu, observes correct native SQL filter results and verifies
+a deep link to the exact bank event. The synthetic stage and audit rows are
+cleaned and their absence checked after the run; native ledger records are
+not altered. The native publisher's production flag remains unchanged.
 `tests/category-learning-sqlite.php` verifies supervised feedback, conservative
 abstention, unknown words, opposite-direction behavior, unique counterparty
 matches, ambiguous names, company/account isolation and correction of old

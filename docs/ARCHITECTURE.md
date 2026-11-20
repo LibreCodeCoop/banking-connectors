@@ -81,10 +81,25 @@ does not alter Akaunting core or claim to settle invoices automatically.
   consistent with its required non-null category model. No document is marked
   paid or native reconciliation marked complete merely by import.
 - **Native transaction UI**: an Akaunting view composer augments the existing
-  Banking → Transactions index with account-scoped feed status filters and
-  correction/review actions. The original native components, totals and
-  standard list remain intact. Account integration is limited to operational
-  setup, security, polling and rules. The composer requires banking read ACL.
+  Transactions content component, preserving the native Income/Expense/All/
+  Recurring tabs and adding one **Bank movements** tab. Both lists use
+  Akaunting's own search-dropdown component: `bank_status` on native ledger
+  records and `bank_movement` on stage rows, with the existing account filter.
+  SearchStringApplying extends only the authenticated Transactions route and
+  applies company/account-scoped SQL EXISTS predicates *before native
+  pagination*, while the ordinary search manager strips the module-only token
+  before parsing core columns. This prevents invalid synthetic column
+  references and preserves native search and totals.
+  Native transaction row actions are enriched in the existing `x-table.actions`
+  hover menu, with one batched company-scoped query for the current page;
+  linked rows show a bank-evidence marker. Stage rows use Akaunting's native
+  table/action/pagination components, but do not become financial ledger rows
+  until safely published or linked. The two overridden view components are
+  copied from the project's current native templates because Akaunting does
+  not expose a stack insertion point for an extra tab or row marker; upstream
+  updates to those components require a compatibility check.
+  Account integration remains limited to setup, security, polling and rules.
+  All UI and query extensions require banking read ACL and company membership.
 - **Classifications**: a bounded, validated `bank_description` is extracted
   from the Sicoob description field. Per-company/account category rules use
   case/accent-normalized `contains`, debit/credit direction, enabled flag
