@@ -20,7 +20,7 @@ jobs:
             -v "$PWD:/module:ro" -w /module php:8.4-cli sh -ceu '
               find Application Console Connectors Contracts Database Domain Http Infrastructure Providers Resources Routes tests examples \
                 -type f -name "*.php" -exec php -l {} \; > /tmp/php-lint.txt
-              for test in inherited-category-sqlite invoice-match-sqlite return-location contract provider sicoob-http-client sicoob-retry-policy \
+              for test in masked-pix-bill-sqlite inherited-category-sqlite invoice-match-sqlite return-location contract provider sicoob-http-client sicoob-retry-policy \
                   bank-connector-plugin health-snapshot native-mapper staging-sqlite \
                   read-only-sync-sqlite bank-details-sqlite statement-detail-backfill-sqlite pix-enrichment single-entry-review-sqlite review-decision-sqlite category-workflow-sqlite category-learning-sqlite connection-control-sqlite native-posting-decision; do
                 php "tests/$test.php" > /tmp/case.out ||

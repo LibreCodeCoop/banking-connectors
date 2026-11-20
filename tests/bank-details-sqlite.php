@@ -33,6 +33,14 @@ verifyDetails(count($mapped['entries'])===1,'one mapped source movement');
 $bank=$mapped['entries'][0];
 verifyDetails($bank->details['pix_end_to_end_id']===$raw['endToEndId']
     && $bank->details['sender_name']==='Pessoa Exemplo','Pix identifiers and institution details mapped');
+$outgoing=$mapper->map(['resultado'=>['transacoes'=>[array_replace($raw,[
+ 'transactionId'=>'synthetic-debit-mask',
+ 'tipo'=>'D','descricao'=>'PIX enviado',
+ 'descInfComplementar'=>'PAGAMENTO PIX|@***.982.247-**|@',
+])]]],1,9)['entries'][0];
+verifyDetails($outgoing->direction==='debit' &&
+    ($outgoing->details['complement']??null)==='PAGAMENTO PIX|@***.982.247-**|@',
+    'actual masked debit Pix CPF survives the existing v4 mapping boundary');
 verifyDetails(($bank->details['complement']??null)==='Informacao extra de extrato' &&
     ($bank->details['batch_date']??null)==='2026-11-20',
     'actual Sicoob v4 statement keys are captured');

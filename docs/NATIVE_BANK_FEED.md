@@ -290,3 +290,43 @@ without a verified structured payer: a same-amount invoice outside the
 settlement date window must not be treated as a match, even for a known client.
 The cooperative-production system creates Akaunting bills, but this alone
 does not prove a bank movement settled a particular bill.
+
+## Provisional Pix-to-bill relation using a masked CPF
+
+On a **single outgoing Sicoob Pix**, the bank's allowlisted statement
+`complement` may present a recipient CPF as `***.123.456-**`. This is a
+masked **CPF display**, not necessarily a Pix key and not a bank-certified
+identity. The provider-specific parser requires a recognizable `PAGAMENTO PIX`
+source and exactly one complete CPF mask; a raw description, partial pattern
+or unsupported bank/provider cannot establish identity. Only the **six middle
+digits** of a valid full CPF are compared. The displayed percentage is the
+number of **visible digits matching**, not a calibrated probability that the
+payment belongs to that person. A mask can match multiple contacts.
+
+When the authorized reviewer opens a pending bank entry, a read-only advisor
+revalidates the company/account-scoped bank source and compares the mask with
+the document's historical and current vendor CPF. It also requires the same
+company, BRL, exact amount in cents, paid bill status and an existing native
+expense payment on the connected bank account within **14 days** of the bank
+movement. More than one eligible bill/payment, a changed contact identity,
+an already-linked native payment, excessive/truncated result sets or a stale
+movement cause the proposal to abstain. Contact-mask collisions are shown
+explicitly, not concealed by the matching percentage.
+
+A qualifying document appears as an **automatically calculated provisional
+link** with its native bill URL and the existing payment reference. It is
+recomputed on every individual view, not stored as a confirmed association.
+This cannot mark a bill as paid (it is already paid), create a new payment,
+settle an invoice, set `linked_transaction_id`, alter a ledger category or
+train the classifier. Existing native-association confirmation revalidates
+the transaction again and remains a separate user action.
+
+The lookup only runs when the signed-in reviewer has **both**
+`read-purchases-bills` and `read-purchases-vendors` permissions; it does not
+return or log an unmasked CPF. No DICT probing, third-party AI service,
+financial mutation, production resync or new database migration is required.
+
+For automatic, **confirmed** settlement, a separate bank-origin proof of the
+recipient/payee identity and a transactional payment idempotency contract are
+necessary. Six visible CPF digits and a coincident amount alone are not such
+proof.
