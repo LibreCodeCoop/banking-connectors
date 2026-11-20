@@ -125,7 +125,8 @@ The combined local regression is `bash tests/run-local-verification.sh`.
 candidate reads, transfers and document holds. `tests/local-native-publication.php`
 runs the real Akaunting CreateTransaction job in a synthetic rollback-only
 MySQL transaction. It checks exact amount/currency/company/account,
-provisional categories, immutable source linking, replay idempotency,
+activation watermark exclusion of historical movements, provisional
+categories, immutable source linking, replay idempotency,
 foreign company denial, existing native payments, transfers and a synthetic
 unpaid invoice. Every write, including the fake invoice and account, is
 rolled back before the test returns. `tests/localhost-native-transactions.py`

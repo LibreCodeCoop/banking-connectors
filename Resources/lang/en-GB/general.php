@@ -43,7 +43,7 @@ return [
     'native_no_movements' => 'No bank movements match this filter.',
     'back_to_transactions' => 'Back to transactions',
     'native_post_title' => 'Automatic native financial posting',
-    'native_post_warning' => 'When enabled, a verified bank movement without a compatible existing transaction creates a native Akaunting transaction. Missing categories use a provisional category. Suspected transfers and duplicates require review; invoices are never auto-settled.',
+    'native_post_warning' => 'When enabled, existing bank history stays available for review and is never backfilled silently. Only recent newly ingested, verified and unmatched movements may create native Akaunting transactions. Transfers and duplicates still need review; invoices are never auto-settled.',
     'native_post_on' => 'Native posting enabled for this connection.',
     'native_post_off' => 'Native posting disabled for this connection.',
     'native_post_enable' => 'Enable automatic financial posting',

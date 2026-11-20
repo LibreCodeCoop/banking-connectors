@@ -36,7 +36,8 @@ final class PublishConnection extends Command
         } catch (Throwable $e) {
             $safe=['native_publication_not_enabled','invalid_native_publishing_scope',
                 'bank_connection_not_accessible','native_publication_currency_unsupported',
-                'multiple_active_bank_feeds_require_review','bank_company_not_found'];
+                'multiple_active_bank_feeds_require_review','bank_company_not_found',
+                'native_posting_activation_boundary_missing'];
             $this->error(in_array($e->getMessage(),$safe,true) ?
                 $e->getMessage() : 'native_publication_failed');
             return self::FAILURE;

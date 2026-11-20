@@ -35,6 +35,7 @@ if (config('app.env')!=='local' ||
     $hosts===[]||count(array_unique($hosts))!==1||$hosts[0]!=='banksync-local-db') {
     throw new RuntimeException('refusing_non_synthetic_database');
 }
+\Illuminate\Support\Carbon::setTestNow('2026-11-20 12:00:00');
 $company=2;
 $baseTransactions=DB::table('transactions')->where('company_id',$company)->count();
 $oldCompany=Company::getCurrent();
@@ -52,6 +53,7 @@ try {
         'company_id'=>$company,'account_id'=>$account,'provider'=>'sicoob',
         'credential_reference'=>'local/synthetic/native-publication',
         'state'=>'enabled','native_post_enabled'=>1,
+        'native_post_after_entry_id'=>0,'native_post_activated_at'=>now(),
         'created_at'=>now(),'updated_at'=>now(),
     ]);
     DB::table('documents')->insert([
@@ -101,6 +103,20 @@ try {
             'created_at'=>now(),'updated_at'=>now(),
         ]);
     }
+    // Production activation fences off every already-staged movement.
+    $afterExisting=(int)DB::table('lcc_banking_connectors_entries')
+        ->where('company_id',$company)->where('connection_id',$id)->max('id');
+    DB::table('lcc_banking_connectors_connections')
+        ->where('id',$id)->where('company_id',$company)
+        ->update(['native_post_after_entry_id'=>$afterExisting]);
+    $old=app(NativePublisher::class)->run($company,$id,false,100);
+    if ($old['evaluated']!==0 || $old['created']!==0) {
+        throw new RuntimeException('activation_retroactively_posted_legacy_bank_movements');
+    }
+    DB::table('lcc_banking_connectors_connections')
+        ->where('id',$id)->where('company_id',$company)
+        ->update(['native_post_after_entry_id'=>0]);
+    echo "PASS activation watermark excludes historical bank imports from native posting\n";
     $before=DB::table('transactions')->where('company_id',$company)->count();
     $dry=app(NativePublisher::class)->run($company,$id,true,100);
     if ($dry['created']!==1 || $dry['held']<3 ||
@@ -150,6 +166,7 @@ try {
     if ($conn->transactionLevel()>0) $conn->rollBack();
     if ($oldCompany) $oldCompany->makeCurrent();
     else Company::forgetCurrent();
+    \Illuminate\Support\Carbon::setTestNow();
 }
 if (DB::table('transactions')->where('company_id',$company)->count()!==$baseTransactions) {
     throw new RuntimeException('rollback_only_native_test_leaked_financial_writes');

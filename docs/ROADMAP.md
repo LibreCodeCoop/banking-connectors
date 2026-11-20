@@ -68,7 +68,10 @@ Automatic native posting is available per authorized connection, disabled by def
   uncategorized, conflicting, ignored and posted records.
 - Disabled by default for existing bank connections. A user with native
   transaction create and bank administration permissions explicitly enables
-  posting for a verified, active, BRL bank connection.
+  posting for a verified, active, BRL bank connection. Activation records
+  a bank-source high-water mark and UTC timestamp so existing historical
+  movements cannot be posted retroactively. Late historical backfill is
+  also kept in the review queue.
 - The publishing service evaluates each source movement against a bounded
   company/account-scoped search of native income, expense and transfer legs.
   Native candidates, conflicting bank revisions, possible internal transfers,

@@ -43,7 +43,7 @@ return [
     'native_no_movements' => 'Nenhuma movimentação bancária neste filtro.',
     'back_to_transactions' => 'Voltar às transações',
     'native_post_title' => 'Publicação automática no financeiro',
-    'native_post_warning' => 'Se ativada, uma movimentação bancária identificada e sem lançamento compatível será criada pelo serviço nativo do Akaunting. Categorias ausentes recebem marcação provisória. Transferências e possíveis duplicações permanecem aguardando revisão. Não baixa faturas automaticamente.',
+    'native_post_warning' => 'Ao ativar, os movimentos já importados permanecem para revisão e não serão lançados retroativamente. Apenas novos movimentos bancários recentes, verificados e sem registro compatível serão publicados pelo Akaunting. Transferências e possíveis duplicações aguardam revisão. Não baixa faturas automaticamente.',
     'native_post_on' => 'Publicação automática ativada nesta conexão.',
     'native_post_off' => 'Publicação automática desativada nesta conexão.',
     'native_post_enable' => 'Ativar publicação financeira automática',
