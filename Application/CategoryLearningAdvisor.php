@@ -15,8 +15,9 @@ use PDO;
  *
  * No model downloads, LLM requests, exported training rows, opaque model
  * serialization, or mutation of Akaunting accounting/contact records.
- * Each preview learns from the *latest* explicit human category decision for
- * each movement; disabling/relabeling is reflected on the next request.
+ * Training uses latest explicit human category decisions and explicitly
+ * accepted native links while their existing category remains consistent.
+ * Reopening or recategorizing invalidates the inferred training label.
  */
 final class CategoryLearningAdvisor
 {
@@ -24,6 +25,8 @@ final class CategoryLearningAdvisor
     private readonly string $entries;
     private readonly string $categories;
     private readonly string $contacts;
+    private readonly string $reviews;
+    private readonly string $transactions;
 
     public function __construct(private readonly PDO $db, string $prefix = '')
     {
@@ -34,6 +37,8 @@ final class CategoryLearningAdvisor
         $this->entries = $prefix . 'lcc_banking_connectors_entries';
         $this->categories = $prefix . 'categories';
         $this->contacts = $prefix . 'contacts';
+        $this->reviews = $prefix . 'lcc_banking_connectors_review_events';
+        $this->transactions = $prefix . 'transactions';
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     }
 
@@ -192,7 +197,44 @@ final class CategoryLearningAdvisor
         $stmt->bindValue(':account',$account,PDO::PARAM_INT);
         $stmt->bindValue(':limit',TokenCategoryLearner::MAX_EXAMPLES+1,PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $manual=$stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($manual)>TokenCategoryLearner::MAX_EXAMPLES) return $manual;
+
+        // The reviewer has explicitly confirmed the source-to-native link,
+        // and the current, live native category still agrees with the staged
+        // inherited label. Date/amount hints and automatic publications alone
+        // are NEVER training labels.
+        $sql = "SELECT e.id,e.provider,e.direction,e.bank_description,e.bank_details,
+                       e.category_id AS category_id
+            FROM {$this->entries} e
+            JOIN {$this->transactions} t ON t.id=e.linked_transaction_id
+              AND t.company_id=e.company_id AND t.account_id=e.account_id
+              AND t.category_id=e.category_id AND t.deleted_at IS NULL
+              AND ((e.direction='credit' AND t.type='income')
+                OR (e.direction='debit' AND t.type='expense'))
+            JOIN {$this->categories} c ON c.id=e.category_id
+              AND c.company_id=e.company_id AND c.enabled=1 AND c.deleted_at IS NULL
+              AND ((e.direction='credit' AND c.type='income')
+                OR (e.direction='debit' AND c.type='expense'))
+            WHERE e.company_id=:company AND e.account_id=:account
+              AND e.state='reviewed' AND e.category_source='linked_native'
+              AND e.bank_description IS NOT NULL AND e.bank_description <> ''
+              AND EXISTS (
+                SELECT 1 FROM {$this->reviews} r
+                WHERE r.entry_id=e.id AND r.company_id=e.company_id
+                  AND r.account_id=e.account_id AND r.connection_id=e.connection_id
+                  AND r.operation='accept' AND r.native_transaction_id=e.linked_transaction_id
+              )
+            ORDER BY e.id DESC LIMIT :limit";
+        $verified=$this->db->prepare($sql);
+        $verified->bindValue(':company',$company,PDO::PARAM_INT);
+        $verified->bindValue(':account',$account,PDO::PARAM_INT);
+        $verified->bindValue(':limit',TokenCategoryLearner::MAX_EXAMPLES+1,PDO::PARAM_INT);
+        $verified->execute();
+        // The existing advisor refuses to train when the verified set exceeds
+        // the cap, rather than silently learning from a truncated subset.
+        return array_slice(array_merge($manual,$verified->fetchAll(PDO::FETCH_ASSOC)),
+            0,TokenCategoryLearner::MAX_EXAMPLES+1);
     }
 
     /** @return list<array{id:int,type:string,name:string,category_id:int|null}> */

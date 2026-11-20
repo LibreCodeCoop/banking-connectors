@@ -252,3 +252,41 @@ to accounting. The classifier still requires sufficient audited examples;
 with fewer than 12 examples it must abstain. The next major financial feature
 would require a separate transactional settlement contract with verified
 identity, partial-payment handling, concurrency protection and idempotency.
+
+## Inheriting classification from a verified native association
+
+The bank movement's **suggested category** can now be taken from a unique,
+company/account/direction/amount/date-compatible native transaction. This is
+only a candidate, not evidence of who sent or received the Pix. The review
+screen displays the native category and, with `read-purchases-bills` access,
+links to an already-paid bill behind that transaction. A matching amount alone
+never marks a document paid and never authorizes association.
+
+When the reviewer explicitly confirms the source-to-native link, the review
+service copies the live native category to the previously uncategorized bank
+movement in the **same audited, idempotent staging transaction**, provided that
+category is still enabled, belongs to the same company and has the correct
+income/expense direction. The original native transaction and bill remain
+unchanged. Existing manual or rule classifications are not overwritten. A
+reopen removes only a category that came from the retracted native link; a
+manual category is preserved.
+
+The local supervised model can also learn from this additional class of
+**human-confirmed native association** while the native transaction's current
+category still agrees with the staged label. Unreviewed suggestions, stale
+links, revoked categories, inactive or mismatched directions, and automatic
+native publication are not training labels. The original minimum example
+thresholds and uncertainty abstention remain unchanged.
+
+### Observed data limitations
+
+Read-only diagnostics of the current Sicoob statement identified exact-amount
+existing native bill transactions that can be proposed for user confirmation,
+but stored statement metadata has no verified Pix recipient identifier on
+those debit entries, and their statement document number does not match the
+native transaction reference. Consequently no new **unattended** source-to-
+ledger association is enabled. The same restriction applies to client receipts
+without a verified structured payer: a same-amount invoice outside the
+settlement date window must not be treated as a match, even for a known client.
+The cooperative-production system creates Akaunting bills, but this alone
+does not prove a bank movement settled a particular bill.

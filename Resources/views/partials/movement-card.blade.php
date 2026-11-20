@@ -73,6 +73,15 @@
                                                     {{ trans('banking-connectors::general.counterparty_warning') }}
                                                 </p>
                                             @endif
+                                            @if($singleEntryId !== null && $row['stage_state']==='pending' &&
+                                                $row['native_candidate_category_suggestion'] !== null && $row['category_id']===null)
+                                                <p class="mt-3 text-sm text-purple" id="banking-connectors-native-category-suggestion">
+                                                    {{ trans('banking-connectors::general.native_candidate_category_suggestion',[
+                                                        'category'=>$categoryNames[$row['native_candidate_category_suggestion']]
+                                                            ?? trans('banking-connectors::general.category_missing')
+                                                    ]) }}
+                                                </p>
+                                            @endif
                                             @if ($row['learning_suggestion'] !== null)
                                                 <p class="mt-3 text-sm font-medium text-purple" id="bank-entry-{{ $row['id'] }}-learning-hint">
                                                     {{ trans('banking-connectors::general.learning_suggested_category') }}:
@@ -91,8 +100,13 @@
                                                     // deliberate, authorized save by the reviewer.
                                                     $formCategory = $row['category_id']
                                                         ?? ($row['invoice_category_suggestion'] ?? null)
+                                                        ?? ($row['native_candidate_category_suggestion'] ?? null)
                                                         ?? ($row['learning_suggestion']['category_id'] ?? null);
                                                 @endphp
+                                                @if($singleEntryId !== null && $row['stage_state']==='pending' && count($row['candidate_details'])===1)
+                                                    <details class="mt-3 text-sm" id="banking-connectors-classify-without-link">
+                                                        <summary class="cursor-pointer text-gray-600">{{ trans('banking-connectors::general.classify_without_link') }}</summary>
+                                                @endif
                                                 <form method="POST"
                                                       action="{{ route('banking-connectors.account.category.update',['company_id'=>company_id(),'accountId'=>$selected->account_id,'entryId'=>$row['id']]) }}"
                                                       class="mt-3 space-y-2">
@@ -129,6 +143,7 @@
                                                         {{ trans('banking-connectors::general.save_category') }}
                                                     </x-button>
                                                 </form>
+                                                @if($singleEntryId !== null && $row['stage_state']==='pending' && count($row['candidate_details'])===1)</details>@endif
                                             @endif
                                         </section>
                                         <section>
@@ -162,9 +177,10 @@
                                             @elseif ($row['stage_state'] === 'pending' && $canReview)
                                                 @if ($row['candidate_details'] !== [])
                                                     @if ($singleEntryId !== null)
-                                                        <details class="mt-3 text-sm" id="banking-connectors-association-details">
+                                                        <details class="mt-3 text-sm" id="banking-connectors-association-details" @if(count($row['candidate_details'])===1) open @endif>
                                                             <summary class="cursor-pointer text-purple font-medium">{{ trans('banking-connectors::general.show_match_options') }}</summary>
                                                     @endif
+                                                    <p class="mt-2 text-xs text-gray-600">{{ trans('banking-connectors::general.native_candidate_not_proof') }}</p>
                                                     <form method="POST" class="mt-2 space-y-3"
                                                           action="{{ route('banking-connectors.review.decide',['company_id'=>company_id()]) }}">
                                                         @if($singleEntryId !== null)
@@ -182,7 +198,7 @@
                                                             <select name="native_transaction_id" class="border rounded-lg px-3 py-2 w-full" required>
                                                                 <option value="">—</option>
                                                                 @foreach ($row['candidate_details'] as $candidate)
-                                                                    <option value="{{ $candidate['id'] }}">
+                                                                    <option value="{{ $candidate['id'] }}" @if(count($row['candidate_details'])===1) selected @endif>
                                                                         #{{ $candidate['id'] }} · {{ $candidate['date'] }} ·
                                                                         {{ $candidate['currency'] }} {{ number_format($candidate['amount_cents']/100,2,',','.') }}
                                                                         @if ($candidate['category_name']) · {{ $candidate['category_name'] }} @endif
@@ -191,8 +207,23 @@
                                                                 @endforeach
                                                             </select>
                                                         </label>
+                                                            @if($singleEntryId !== null)
+                                                                @foreach($row['candidate_details'] as $candidate)
+                                                                    @if(!empty($candidate['paid_bill']))
+                                                                        <p class="mt-2 text-xs text-amber-800">
+                                                                            {{ trans('banking-connectors::general.native_candidate_bill_paid') }}:
+                                                                            <a href="{{ route('bills.show',['company_id'=>company_id(),'bill'=>$candidate['paid_bill']['id']]) }}"
+                                                                               class="text-purple underline" target="_blank" rel="noopener noreferrer">
+                                                                                {{ $candidate['paid_bill']['number'] }}
+                                                                            </a>
+                                                                        </p>
+                                                                    @endif
+                                                                @endforeach
+                                                            @endif
                                                         <x-button type="submit" kind="secondary">
-                                                            {{ trans('banking-connectors::general.associate_transaction') }}
+                                                            {{ ($row['native_candidate_category_suggestion'] ?? null)!==null
+                                                                ? trans('banking-connectors::general.associate_and_inherit_category')
+                                                                : trans('banking-connectors::general.associate_transaction') }}
                                                         </x-button>
                                                     </form>
                                                     @if ($singleEntryId !== null)</details>@endif

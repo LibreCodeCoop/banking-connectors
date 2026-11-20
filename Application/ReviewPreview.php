@@ -111,7 +111,7 @@ final class ReviewPreview
             // does not continue proposing its old category.
             $storedSource=$record['category_source'] ?? null;
             $ruleCategory=$engine->suggest($movement->description,$movement->direction,$rules);
-            $category=$storedSource==='manual'
+            $category=in_array($storedSource,['manual','linked_native'],true)
                 ? (isset($record['category_id']) ? (int)$record['category_id'] : null)
                 : ($ruleCategory['category_id'] ?? null);
 
@@ -138,9 +138,9 @@ final class ReviewPreview
                 'candidate_ids'=>$decision['candidate_ids'],
                 'candidate_details'=>$candidateDetails,
                 'category_id'=>$category,
-                'category_source'=>$storedSource==='manual'?'manual':
+                'category_source'=>in_array($storedSource,['manual','linked_native'],true)?$storedSource:
                     ($ruleCategory!==null?'rule':null),
-                'category_rule_id'=>$storedSource==='manual'?null:($ruleCategory['rule_id']??null),
+                'category_rule_id'=>in_array($storedSource,['manual','linked_native'],true)?null:($ruleCategory['rule_id']??null),
                 'first_seen_at'=>$record['first_seen_at'],
                 'last_seen_at'=>$record['last_seen_at'],
             ];
