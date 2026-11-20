@@ -93,6 +93,8 @@ return [
     'bank_detail_origin_ispb' => 'Origin ISPB',
     'bank_detail_destination_ispb' => 'Destination ISPB',
     'bank_detail_time' => 'Bank-reported time',
+    'show_match_options' => 'Choose a transaction to link',
+    'other_review_actions' => 'Other actions',
     'single_entry_title' => 'Review bank movement',
     'native_resolve' => 'Review / correct',
     'native_no_movements' => 'No bank movements match this filter.',

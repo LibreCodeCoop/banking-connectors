@@ -121,6 +121,7 @@
                         $bankEntryUrl=route('banking-connectors.transactions.entry',[
                             'company_id'=>company_id(),
                             'accountId'=>$item->account_id,'entryId'=>$item->id,
+                            ...(($source=\Modules\BankingConnectors\Http\ReturnLocation::current((int)company_id()))!==null ? ['from'=>$source] : []),
                         ]);
                     }
                 @endphp

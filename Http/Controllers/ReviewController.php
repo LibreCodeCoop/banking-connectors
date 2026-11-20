@@ -18,6 +18,7 @@ use Modules\BankingConnectors\Application\ReviewPreview;
 use Modules\BankingConnectors\Application\BankConnectorRegistry;
 use Modules\BankingConnectors\Application\CategoryWorkflow;
 use Modules\BankingConnectors\Application\CategoryLearningAdvisor;
+use Modules\BankingConnectors\Http\ReturnLocation;
 
 /**
  * Native admin-only read surface. Do not trust company/account/connection
@@ -76,7 +77,7 @@ final class ReviewController extends Controller
         // Never accept a company override from a query string.
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
         abort_unless($companyId > 0, 404);
-        $tab = $forcedTab ?? (string) $request->query('tab', $accountId === null ? 'review' : 'settings');
+        $tab = $entryId !== null ? 'review' : ($forcedTab ?? (string) $request->query('tab', $accountId === null ? 'review' : 'settings'));
         abort_unless(in_array($tab, ['review','settings','rules'], true), 404);
         $filter = (string) $request->query('filter', 'pending');
         abort_unless(in_array($filter, ['pending','reviewed','dismissed','all'], true), 422);
@@ -137,6 +138,16 @@ final class ReviewController extends Controller
             abort_unless($selected !== null, 404);
         } else {
             $selected = $connections->first();
+        }
+        if ($entryId !== null) {
+            // A bank account can have more than one connector. Resolve the
+            // exact source connection, not the first account connection.
+            $entryConnection = DB::table('lcc_banking_connectors_entries')
+                ->where('id', $entryId)->where('company_id', $companyId)
+                ->where('account_id', $accountId)->value('connection_id');
+            abort_unless($entryConnection !== null, 404);
+            $selected = $connections->firstWhere('id', (int)$entryConnection);
+            abort_unless($selected !== null, 404);
         }
         // An unconnected bank card must open the connection setup directly.
         if ($accountContext !== null && $selected === null && !$request->has('tab')) {
@@ -217,7 +228,12 @@ final class ReviewController extends Controller
             unset($item);
         }
 
-        return view('banking-connectors::review', [
+        $returnSource = $entryId !== null
+            ? ReturnLocation::previous($request, $companyId)
+            : ReturnLocation::current($companyId);
+        return view($entryId !== null ? 'banking-connectors::entry' : 'banking-connectors::review', [
+            'returnSource' => $returnSource,
+            'returnUrl' => $returnSource ?? route('transactions.index', ['company_id'=>$companyId]),
             'singleEntryId' => $entryId,
             'accountContext' => $accountContext,
             'tab' => $tab,
@@ -298,10 +314,12 @@ final class ReviewController extends Controller
                 'idempotent' => $decision['idempotent']], 200);
         }
         $returnEntry=filter_var($request->input('return_entry_id'),FILTER_VALIDATE_INT);
+        $backSource=ReturnLocation::forCompany($request->input('from'),$companyId);
         if ($returnEntry !== false && $returnEntry > 0 && $returnEntry === (int)$values['entry_id']) {
             return redirect()->route('banking-connectors.transactions.entry', [
                 'company_id'=>$companyId,'accountId'=>(int)$connection->account_id,
                 'entryId'=>$returnEntry,
+                ...($backSource !== null ? ['from'=>$backSource] : []),
             ])->with('success',trans('banking-connectors::general.review_saved'));
         }
         return redirect()->route('banking-connectors.transactions.review', [

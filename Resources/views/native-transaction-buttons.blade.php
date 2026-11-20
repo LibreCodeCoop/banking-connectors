@@ -12,13 +12,15 @@
                 <form method="POST" action="{{ route('banking-connectors.connections.request',['company_id'=>company_id(),'connectionId'=>$bankSync->id]) }}" class="inline-flex">
                     @csrf
                     <input type="hidden" name="request_key" value="{{ bin2hex(random_bytes(16)) }}">
-                    <button type="submit" class="border rounded-lg px-4 py-2 text-purple" {{ $bankSync->poll_requested_at ? 'disabled' : '' }}>
+                    <x-button type="submit" kind="secondary" :disabled="(bool) $bankSync->poll_requested_at" id="banking-connectors-sync-now">
                         {{ trans('banking-connectors::general.sync_now') }}
-                    </button>
+                    </x-button>
                 </form>
             @else
                 <x-dropdown id="banking-connectors-sync-dropdown">
-                    <x-slot name="trigger"><span class="text-purple">{{ trans('banking-connectors::general.sync_now') }}</span></x-slot>
+                    <x-slot name="trigger" override="class" class="px-3 py-1.5 mb-3 sm:mb-0 rounded-xl text-sm font-medium leading-6 bg-purple hover:bg-purple-700 text-white">
+                        {{ trans('banking-connectors::general.sync_now') }}
+                    </x-slot>
                     @foreach($bankSyncConnections as $bankSync)
                         <form method="POST" action="{{ route('banking-connectors.connections.request',['company_id'=>company_id(),'connectionId'=>$bankSync->id]) }}">
                             @csrf
