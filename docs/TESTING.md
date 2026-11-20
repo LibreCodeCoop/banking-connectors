@@ -222,3 +222,11 @@ number evidence: amount/account/date must still match, ambiguous references
 are withheld, and a foreign-company candidate cannot supply corroboration.
 `tests/category-learning-sqlite.php` covers verified counterparty names from
 provider metadata, with native contact ACL and tenant isolation enforced.
+
+### Single entry navigation
+
+`php tests/return-location.php` verifies the safe same-company route and
+forbids external redirect origins. Authenticated, read-only synthetic HTTP
+coverage is `tests/localhost-entry-navigation.py`; it verifies the standalone
+entry view, origin query preservation, absence of queue counters/settings and
+rejection of invalid return targets.

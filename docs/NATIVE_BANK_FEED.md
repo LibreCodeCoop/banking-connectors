@@ -212,3 +212,20 @@ Run isolated HTTP acceptance checks against the documented synthetic fixture:
 Native Akaunting currently has a pre-existing document-number sorting defect
 in the tested version, before the module's table composer is invoked; this
 sort mode is not claimed to be fixed by the combined view.
+
+## Dedicated single-movement review and navigation
+
+The entry detail URL is a separate Blade view, not a bank queue with an
+entry filter. It does not show queue counters, account configuration, or
+repeat review filters. The same extracted movement-card partial keeps the
+classification and reviewed-link workflows compatible with queue review.
+
+Every native transaction-list action attaches the original same-company list
+URI (including filters, sorting, pagination) as an optional `from` parameter.
+Only the exact same-company `transactions.index` path passes the return-target
+validator; external URLs, cross-company paths and control characters fail
+closed to the native transactions index. POST categorization and reconciliation
+retain this origin when returning to the detail page. The secondary association
+and ignore actions are collapsed in the individual view, leaving the primary
+classification action visible. Connection configuration remains on its
+dedicated page.
