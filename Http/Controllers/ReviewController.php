@@ -19,6 +19,7 @@ use Modules\BankingConnectors\Application\BankConnectorRegistry;
 use Modules\BankingConnectors\Application\CategoryWorkflow;
 use Modules\BankingConnectors\Application\CategoryLearningAdvisor;
 use Modules\BankingConnectors\Application\InvoiceMatchAdvisor;
+use Modules\BankingConnectors\Application\MaskedPixBillAdvisor;
 use Modules\BankingConnectors\Http\ReturnLocation;
 
 /**
@@ -34,6 +35,7 @@ final class ReviewController extends Controller
         private readonly CategoryWorkflow $classification,
         private readonly CategoryLearningAdvisor $learning,
         private readonly InvoiceMatchAdvisor $invoices,
+        private readonly MaskedPixBillAdvisor $maskedBills,
     ) {}
 
     public function index(Request $request): View
@@ -262,6 +264,21 @@ final class ReviewController extends Controller
                     ];
                 }
                 unset($candidate);
+            }
+            // The mask is an imperfect CPF hint. Display a fresh, provisional
+            // document association only to users permitted to see both native
+            // supplier identity and bill information. No mutation occurs.
+            if ($entryId !== null && $report['items'] !== []) {
+                $item=&$report['items'][0];
+                $item['masked_pix_bill_relation']=null;
+                if ($item['stage_state']==='pending' &&
+                    auth()->user()->can('read-purchases-bills') &&
+                    auth()->user()->can('read-purchases-vendors')) {
+                    $item['masked_pix_bill_relation']=$this->maskedBills->suggest(
+                        $companyId,$account,$item
+                    );
+                }
+                unset($item);
             }
             // Invoice visibility is a separate Akaunting permission, not
             // implied by the right to read bank movements.

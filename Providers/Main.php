@@ -21,6 +21,7 @@ use Modules\BankingConnectors\Application\ConnectionControl;
 use Modules\BankingConnectors\Application\CategoryWorkflow;
 use Modules\BankingConnectors\Application\CategoryLearningAdvisor;
 use Modules\BankingConnectors\Application\InvoiceMatchAdvisor;
+use Modules\BankingConnectors\Application\MaskedPixBillAdvisor;
 use Modules\BankingConnectors\Application\BankConnectorRegistry;
 use Modules\BankingConnectors\Connectors\Sicoob\SicoobConnector;
 use Modules\BankingConnectors\Application\HealthSnapshot;
@@ -87,6 +88,9 @@ final class Main extends ServiceProvider
         });
         $this->app->bind(InvoiceMatchAdvisor::class, static function (): InvoiceMatchAdvisor {
             return new InvoiceMatchAdvisor(DB::connection()->getPdo(), DB::connection()->getTablePrefix());
+        });
+        $this->app->bind(MaskedPixBillAdvisor::class, static function (): MaskedPixBillAdvisor {
+            return new MaskedPixBillAdvisor(DB::connection()->getPdo(), DB::connection()->getTablePrefix());
         });
         $this->app->bind(CategoryWorkflow::class, static function (): CategoryWorkflow {
             return new CategoryWorkflow(DB::connection()->getPdo(), DB::connection()->getTablePrefix());

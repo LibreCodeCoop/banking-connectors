@@ -164,6 +164,36 @@
                                                     <p class="text-xs text-amber-700">{{ trans('banking-connectors::general.invoice_candidates_warning') }}</p>
                                                 </div>
                                             @endif
+                                            @if ($singleEntryId !== null && !empty($row['masked_pix_bill_relation']))
+                                                @php $automaticBill=$row['masked_pix_bill_relation']; @endphp
+                                                <div class="mt-3 rounded-lg border p-3 text-sm" id="banking-connectors-provisional-bill-link">
+                                                    <p class="font-medium text-purple">
+                                                        {{ trans('banking-connectors::general.masked_pix_bill_heading') }}
+                                                    </p>
+                                                    <p class="mt-1">
+                                                        <a href="{{ route('bills.show',['company_id'=>company_id(),'bill'=>$automaticBill['document_id']]) }}"
+                                                           class="text-purple underline" target="_blank" rel="noopener noreferrer">
+                                                            {{ $automaticBill['number'] }}
+                                                        </a>
+                                                        · {{ trans('banking-connectors::general.masked_pix_bill_native',[ 'id'=>$automaticBill['native_transaction_id'] ]) }}
+                                                    </p>
+                                                    <p class="mt-2 text-xs text-gray-600">
+                                                        {{ trans('banking-connectors::general.masked_pix_bill_evidence',[
+                                                            'matched'=>$automaticBill['matching_visible_percent'],
+                                                            'digits'=>$automaticBill['visible_digits'],
+                                                            'contacts'=>$automaticBill['compatible_contacts']
+                                                        ]) }}
+                                                    </p>
+                                                    @if($automaticBill['compatible_contacts'] > 1)
+                                                        <p class="mt-2 text-xs text-amber-800">
+                                                            {{ trans('banking-connectors::general.masked_pix_bill_ambiguous') }}
+                                                        </p>
+                                                    @endif
+                                                    <p class="mt-2 text-xs text-gray-600">
+                                                        {{ trans('banking-connectors::general.masked_pix_bill_not_settlement') }}
+                                                    </p>
+                                                </div>
+                                            @endif
                                             @if ($row['stage_state'] === 'reviewed')
                                                 <p class="text-sm text-green-800 mt-2">
                                                     {{ trans('banking-connectors::general.manual_link') }} #{{ $row['linked_transaction_id'] }}
