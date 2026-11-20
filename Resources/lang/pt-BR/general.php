@@ -226,6 +226,7 @@ return [
     'reason' => [
         'manual_link_confirmed' => 'Associada manualmente; não implica baixa contábil.',
         'manual_dismissal' => 'Ignorada pelo usuário; evento bancário preservado.',
+        'exact_document_reference_and_financial_facts' => 'Referência bancária exata, com valor, conta, direção e data compatíveis; revisar antes de vincular.',
         'same_amount_direction_account_near_date' => 'Mesmo valor, conta, direção e data próxima.',
         'ambiguous_candidates' => 'Mais de um lançamento possível.',
         'no_candidate' => 'Nenhum lançamento elegível no período.',

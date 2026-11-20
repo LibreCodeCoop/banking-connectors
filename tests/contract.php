@@ -55,6 +55,35 @@ check($engine->evaluate($one, [$wrongAccount, $wrongCompany, $wrongDirection], $
 check($engine->evaluate($one, [array_replace($good, ['banking_connectors_fingerprint' => $one->fingerprint($secret)])], $secret)['status'] === 'already_linked', 'explicit link is idempotent');
 check($engine->evaluate($one, [array_replace($good, ['banking_connectors_fingerprint' => $one->fingerprint($secret), 'amount_cents' => 9000])], $secret)['status'] === 'needs_review', 'changed linked amount blocked');
 check($engine->evaluate($one, [array_replace($good, ['banking_connectors_fingerprint' => $one->fingerprint($secret)]), array_replace($good, ['id' => 201, 'banking_connectors_fingerprint' => $one->fingerprint($secret)])], $secret)['status'] === 'needs_review', 'duplicate explicit links rejected');
+$referenceBank=new BankEntry(1,9,'sicoob',null,'2026-11-11','debit',10000,'BRL',null,
+    ['document_number'=>'DOC-123456']);
+$referenceMatches=$engine->suggestByFacts($referenceBank,[
+    array_replace($good,['id'=>101,'reference'=>'DOC-123456']),
+    array_replace($good,['id'=>102,'reference'=>'other-reference']),
+],3);
+check($referenceMatches['status']==='suggested' &&
+    $referenceMatches['reason']==='exact_document_reference_and_financial_facts' &&
+    $referenceMatches['candidate_ids']===[101],
+    'exact bank document reference disambiguates already qualified financial candidates');
+$unsafe=$engine->suggestByFacts($referenceBank,[
+    array_replace($good,['id'=>101,'reference'=>'DOC-123456','amount_cents'=>10001]),
+    array_replace($good,['id'=>102,'reference'=>'other-reference']),
+],3);
+check($unsafe['reason']==='same_amount_direction_account_near_date' &&
+    $unsafe['candidate_ids']===[102],
+    'wrong financial amount forbids reference match');
+$untrusted=$engine->suggestByFacts($referenceBank,[
+    array_replace($good,['id'=>101,'reference'=>'not-bank-document']),
+    array_replace($good,['id'=>101,'company_id'=>2,'reference'=>'DOC-123456']),
+],3);
+check($untrusted['reason']==='same_amount_direction_account_near_date',
+    'foreign-company record with duplicate ID cannot supply reference evidence');
+$reused=$engine->suggestByFacts($referenceBank,[
+    array_replace($good,['id'=>101,'reference'=>'DOC-123456']),
+    array_replace($good,['id'=>102,'reference'=>'DOC-123456']),
+],3);
+check($reused['status']==='needs_review',
+    'reused bank document number cannot confirm a financial match');
 $noId = new BankEntry(1, 9, 'sicoob', null, '2026-11-11', 'debit', 10000);
 check($engine->evaluate($noId, [$good], $secret)['status'] === 'needs_review', 'missing bank ID blocks automatic reconciliation');
 check($engine->evaluate($one, [], $secret)['status'] === 'unmatched', 'no candidate does not create income or expense');

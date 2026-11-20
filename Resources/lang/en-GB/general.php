@@ -226,6 +226,7 @@ return [
     'reason' => [
         'manual_link_confirmed' => 'Manually linked; does not settle accounting.',
         'manual_dismissal' => 'Ignored by user; bank evidence retained.',
+        'exact_document_reference_and_financial_facts' => 'Exact bank reference with matching amount, account, direction and date; review before linking.',
         'same_amount_direction_account_near_date' => 'Same amount, account, direction and nearby date.',
         'ambiguous_candidates' => 'More than one possible transaction.',
         'no_candidate' => 'No eligible transaction in the period.',

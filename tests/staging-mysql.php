@@ -180,7 +180,7 @@ $db->exec("CREATE TABLE transactions (
     amount DECIMAL(14,2) NOT NULL,currency_code CHAR(3) NOT NULL,
     category_id INT UNSIGNED NULL,reconciled TINYINT(1) NOT NULL DEFAULT 0,
     document_id BIGINT UNSIGNED NULL,parent_id BIGINT UNSIGNED DEFAULT 0,
-    split_id BIGINT UNSIGNED NULL,deleted_at DATETIME NULL,updated_at DATETIME NULL
+    split_id BIGINT UNSIGNED NULL,reference VARCHAR(255) NULL,deleted_at DATETIME NULL,updated_at DATETIME NULL
 ) ENGINE=InnoDB");
 $db->exec("CREATE TABLE lcc_banking_connectors_category_events (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

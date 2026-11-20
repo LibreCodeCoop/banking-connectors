@@ -158,4 +158,32 @@ verifyLearning($foreign['suggestions']===[] && $foreign['total_labels']===0,
 $otherAccount=$advisor->advise(1,10,[$row]);
 verifyLearning($otherAccount['suggestions']===[] && $otherAccount['total_labels']===0,
     'labels cannot be reused for another bank account');
+// The Sicoob statement may include a validated payer name in provider
+// metadata while the generic Pix description contains no identifying facts.
+$db->exec("INSERT INTO lcc_banking_connectors_entries
+    (id,connection_id,company_id,account_id,provider,source_fingerprint,
+    content_fingerprint,movement_date,direction,amount_cents,currency,
+    bank_description,bank_details,state,conflict_count,first_seen_at,last_seen_at)
+    VALUES (998,1,1,9,'sicoob','synthetic-payer-source',
+    'synthetic-payer-content','2026-11-19','credit',1900,'BRL',
+    'PIX recebido','{\"schema_version\":1,\"provider\":\"sicoob\",\"fields\":{\"sender_name\":\"Cooperativa de Serviços Digitais\"}}',
+    'pending',0,'2026-11-19 11:00:00','2026-11-19 11:00:00')");
+$metadata=$advisor->advise(1,9,[[
+    'id'=>998,'description'=>'PIX recebido','direction'=>'credit',
+    'stage_state'=>'pending','category_source'=>null,
+]],['customer']);
+verifyLearning(($metadata['contacts'][998]['id']??null)===11,
+    'provider-confirmed sender name suggests unique scoped customer');
+$noPermission=$advisor->advise(1,9,[[
+    'id'=>998,'description'=>'PIX recebido','direction'=>'credit',
+    'stage_state'=>'pending','category_source'=>null,
+]]);
+verifyLearning($noPermission['contacts']===[],
+    'provider metadata does not override native customer ACL');
+$crossCompany=$advisor->advise(2,10,[[
+    'id'=>998,'description'=>'PIX recebido','direction'=>'credit',
+    'stage_state'=>'pending','category_source'=>null,
+]],['customer']);
+verifyLearning($crossCompany['contacts']===[],
+    'provider metadata is never read across companies');
 echo "Scoped learning and counterparty suggestions are read-only and passed.\n";

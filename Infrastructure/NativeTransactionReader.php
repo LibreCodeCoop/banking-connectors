@@ -46,7 +46,7 @@ final class NativeTransactionReader
         }
         $from = $parsed->modify("-{$days} days")->format('Y-m-d') . ' 00:00:00';
         $until = $parsed->modify('+' . ($days + 1) . ' days')->format('Y-m-d') . ' 00:00:00';
-        $sql = "SELECT id, company_id, account_id, type, paid_at, amount, currency_code
+        $sql = "SELECT id, company_id, account_id, type, paid_at, amount, currency_code, reference
                 FROM {$this->table}
                 WHERE company_id = :company_id AND account_id = :account_id
                   AND paid_at >= :from_date AND paid_at < :until_date
