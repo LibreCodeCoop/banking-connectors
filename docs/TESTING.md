@@ -239,3 +239,14 @@ substring rejection, ambiguous same-value invoices, draft/partial/paid
 exclusion, incorrect currency/direction/date and fail-closed result caps.
 Tests run in an in-memory SQLite database only; no native payment job is
 invoked.
+
+### Association-derived classification and supervised evidence
+
+`tests/review-decision-sqlite.php` checks that explicitly confirmed native
+links inherit eligible active categories, keep manual categories intact and
+retract inferred categories on reopen, without modifying native financial
+transactions. `tests/category-learning-sqlite.php` tests training from audited
+accepted links, rejects stale/reopened/unproven links and prevents cross-tenant
+learning. `tests/inherited-category-sqlite.php` checks the UI preview source and
+replay persistence of the derived label. The HTTP regression tests exercise
+rendering but do not post any real financial association.
