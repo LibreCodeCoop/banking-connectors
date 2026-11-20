@@ -229,3 +229,26 @@ retain this origin when returning to the detail page. The secondary association
 and ignore actions are collapsed in the individual view, leaving the primary
 classification action visible. Connection configuration remains on its
 dedicated page.
+
+## Candidate invoice matching and classification assistance
+
+On a single credit movement, users who have the **separate native invoice-read
+permission** can see a bounded list of candidate open sent invoices. This
+read-only advisor only considers the same company, BRL, exact full amount and
+an eligible issue date. Partial/draft/paid/cancelled invoices are intentionally
+excluded: the total of a partially paid invoice is not its outstanding balance.
+
+A structured bank payer name that exactly matches an invoice contact is
+stronger evidence than an invoice number in a free-text payer message; amount
+alone is always marked **weak**. Multiple plausible invoices are never
+treated as unique. If exactly one strong payer+amount candidate exists and its
+income category is still accessible, that category is pre-selected for
+explicit confirmation by the reviewer; it is not silently persisted.
+
+An invoice link opens the native Akaunting invoice view. Neither the advisor
+nor the existing Naive Bayes classifier records invoice payments, adjusts
+account balances, accepts arbitrary bank names as legal identity or writes
+to accounting. The classifier still requires sufficient audited examples;
+with fewer than 12 examples it must abstain. The next major financial feature
+would require a separate transactional settlement contract with verified
+identity, partial-payment handling, concurrency protection and idempotency.

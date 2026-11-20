@@ -18,6 +18,7 @@ use Modules\BankingConnectors\Application\ReviewPreview;
 use Modules\BankingConnectors\Application\BankConnectorRegistry;
 use Modules\BankingConnectors\Application\CategoryWorkflow;
 use Modules\BankingConnectors\Application\CategoryLearningAdvisor;
+use Modules\BankingConnectors\Application\InvoiceMatchAdvisor;
 use Modules\BankingConnectors\Http\ReturnLocation;
 
 /**
@@ -32,6 +33,7 @@ final class ReviewController extends Controller
         private readonly BankConnectorRegistry $registry,
         private readonly CategoryWorkflow $classification,
         private readonly CategoryLearningAdvisor $learning,
+        private readonly InvoiceMatchAdvisor $invoices,
     ) {}
 
     public function index(Request $request): View
@@ -226,6 +228,24 @@ final class ReviewController extends Controller
                 $item['possible_counterparty'] = $learned['contacts'][$item['id']] ?? null;
             }
             unset($item);
+            // Invoice visibility is a separate Akaunting permission, not
+            // implied by the right to read bank movements.
+            if ($entryId !== null && $report['items'] !== []) {
+                $item=&$report['items'][0];
+                $item['invoice_candidates']=[];
+                $item['invoice_category_suggestion']=null;
+                if ($item['stage_state']==='pending' &&
+                    auth()->user()->can('read-sales-invoices')) {
+                    $item['invoice_candidates']=$this->invoices->suggest($companyId,$item);
+                    $candidates=$item['invoice_candidates'];
+                    if (count($candidates)===1 && $candidates[0]['reason']==='payer_and_amount' &&
+                        $candidates[0]['category_id']!==null &&
+                        $categories->where('type','income')->contains('id',$candidates[0]['category_id'])) {
+                        $item['invoice_category_suggestion']=$candidates[0]['category_id'];
+                    }
+                }
+                unset($item);
+            }
         }
 
         $returnSource = $entryId !== null

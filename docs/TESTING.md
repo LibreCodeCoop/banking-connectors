@@ -230,3 +230,12 @@ forbids external redirect origins. Authenticated, read-only synthetic HTTP
 coverage is `tests/localhost-entry-navigation.py`; it verifies the standalone
 entry view, origin query preservation, absence of queue counters/settings and
 rejection of invalid return targets.
+
+### Invoice suggestions
+
+`php tests/invoice-match-sqlite.php` covers same-company open invoice
+candidates, exact full payer-name and document-number matching, false
+substring rejection, ambiguous same-value invoices, draft/partial/paid
+exclusion, incorrect currency/direction/date and fail-closed result caps.
+Tests run in an in-memory SQLite database only; no native payment job is
+invoked.
