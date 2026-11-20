@@ -20,6 +20,7 @@ use Modules\BankingConnectors\Application\ReviewPreview;
 use Modules\BankingConnectors\Application\ConnectionControl;
 use Modules\BankingConnectors\Application\CategoryWorkflow;
 use Modules\BankingConnectors\Application\CategoryLearningAdvisor;
+use Modules\BankingConnectors\Application\InvoiceMatchAdvisor;
 use Modules\BankingConnectors\Application\BankConnectorRegistry;
 use Modules\BankingConnectors\Connectors\Sicoob\SicoobConnector;
 use Modules\BankingConnectors\Application\HealthSnapshot;
@@ -83,6 +84,9 @@ final class Main extends ServiceProvider
         });
         $this->app->bind(CategoryLearningAdvisor::class, static function (): CategoryLearningAdvisor {
             return new CategoryLearningAdvisor(DB::connection()->getPdo(), DB::connection()->getTablePrefix());
+        });
+        $this->app->bind(InvoiceMatchAdvisor::class, static function (): InvoiceMatchAdvisor {
+            return new InvoiceMatchAdvisor(DB::connection()->getPdo(), DB::connection()->getTablePrefix());
         });
         $this->app->bind(CategoryWorkflow::class, static function (): CategoryWorkflow {
             return new CategoryWorkflow(DB::connection()->getPdo(), DB::connection()->getTablePrefix());

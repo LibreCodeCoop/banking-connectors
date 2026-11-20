@@ -90,6 +90,7 @@
                                                     // Suggestion is preselected, never applied without a
                                                     // deliberate, authorized save by the reviewer.
                                                     $formCategory = $row['category_id']
+                                                        ?? ($row['invoice_category_suggestion'] ?? null)
                                                         ?? ($row['learning_suggestion']['category_id'] ?? null);
                                                 @endphp
                                                 <form method="POST"
@@ -132,6 +133,22 @@
                                         </section>
                                         <section>
                                             <h4 class="font-semibold text-sm">{{ trans('banking-connectors::general.association_heading') }}</h4>
+                                            @if ($singleEntryId !== null && !empty($row['invoice_candidates']))
+                                                <div class="mt-3 space-y-2" id="banking-connectors-invoice-candidates">
+                                                    <p class="text-sm font-medium">{{ trans('banking-connectors::general.invoice_candidates') }}</p>
+                                                    @foreach($row['invoice_candidates'] as $invoice)
+                                                        <div class="rounded-lg border p-3 text-sm">
+                                                            <a href="{{ route('invoices.show',['company_id'=>company_id(),'invoice'=>$invoice['id']]) }}"
+                                                               class="text-purple underline" target="_blank" rel="noopener noreferrer">
+                                                                {{ $invoice['number'] }}
+                                                            </a>
+                                                            <span class="text-gray-500 block mt-1">{{ $invoice['contact_name'] }}</span>
+                                                            <p class="text-xs text-gray-500 mt-1">{{ trans('banking-connectors::general.invoice_match_'.$invoice['reason']) }}</p>
+                                                        </div>
+                                                    @endforeach
+                                                    <p class="text-xs text-amber-700">{{ trans('banking-connectors::general.invoice_candidates_warning') }}</p>
+                                                </div>
+                                            @endif
                                             @if ($row['stage_state'] === 'reviewed')
                                                 <p class="text-sm text-green-800 mt-2">
                                                     {{ trans('banking-connectors::general.manual_link') }} #{{ $row['linked_transaction_id'] }}
