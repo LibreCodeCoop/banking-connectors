@@ -11,6 +11,9 @@ Use PHP 8.2+ and PDO SQLite. All values are synthetic:
 
 ```sh
 php tests/contract.php
+php tests/bank-details-sqlite.php
+php tests/pix-enrichment.php
+php tests/single-entry-review-sqlite.php
 php tests/provider.php
 php tests/sicoob-http-client.php
 php tests/sicoob-retry-policy.php
