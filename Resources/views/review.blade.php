@@ -28,7 +28,7 @@
                                         : trans('banking-connectors::general.back_to_account') }}
                                 </a>
                             @endif
-                            <h1 class="text-2xl font-semibold text-black mt-2">{{ trans('banking-connectors::general.name') }}</h1>
+                            <h1 class="text-2xl font-semibold text-black mt-2">{{ $singleEntryId !== null ? trans('banking-connectors::general.single_entry_title') : trans('banking-connectors::general.name') }}</h1>
                             @if ($accountContext !== null)
                                 <p class="mt-1 text-base font-medium text-gray-700" id="banking-connectors-account-context">
                                     {{ trans('banking-connectors::general.account_context', ['account' => $accountContext->name]) }}

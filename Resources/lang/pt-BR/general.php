@@ -62,6 +62,7 @@ return [
     'native_status_uncategorized' => 'A classificar',
     'native_status_matched' => 'Associada ao financeiro',
     'native_status_unlinked' => 'Sem associação',
+    'single_entry_title' => 'Revisar movimentação bancária',
     'native_resolve' => 'Revisar / corrigir',
     'native_no_movements' => 'Nenhuma movimentação bancária neste filtro.',
     'back_to_transactions' => 'Voltar às transações',
